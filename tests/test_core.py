@@ -5,7 +5,7 @@ from unittest import mock
 from requests import Request, Session
 
 from Tea.model import TeaModel
-from Tea.core import TeaCore
+from Tea import core
 from Tea.request import TeaRequest
 from Tea.exceptions import TeaException
 
@@ -83,9 +83,8 @@ class ListUserResponse(TeaModel):
          }
 
 
-class TestTeaCore(unittest.TestCase):
+class Testcore(unittest.TestCase):
     def test_compose_url(self):
-        core = TeaCore()
         request = TeaRequest()
         self.assertEqual("http://", core.compose_url(request))
 
@@ -125,7 +124,6 @@ class TestTeaCore(unittest.TestCase):
                          core.compose_url(request))
 
     def test_do_action(self):
-        core = TeaCore()
         request = TeaRequest()
         request.set_host("www.alibabacloud.com")
         request.pathname = "/s/zh"
@@ -136,48 +134,48 @@ class TestTeaCore(unittest.TestCase):
     def test_get_response_body(self):
         moc_resp = mock.Mock()
         moc_resp.content = "test".encode("utf-8")
-        self.assertAlmostEqual("test", TeaCore.get_response_body(moc_resp))
+        self.assertAlmostEqual("test", core.get_response_body(moc_resp))
 
     def test_allow_retry(self):
-        self.assertFalse(TeaCore.allow_retry(None, 0, 0))
+        self.assertFalse(core.allow_retry(None, 0, 0))
         dic = {}
-        self.assertFalse(TeaCore.allow_retry(dic, 0, 0))
+        self.assertFalse(core.allow_retry(dic, 0, 0))
         dic["maxAttempts"] = 3
-        self.assertTrue(TeaCore.allow_retry(dic, 0, 0))
-        self.assertFalse(TeaCore.allow_retry(dic, 4, 0))
+        self.assertTrue(core.allow_retry(dic, 0, 0))
+        self.assertFalse(core.allow_retry(dic, 4, 0))
         dic["maxAttempts"] = None
-        self.assertFalse(TeaCore.allow_retry(dic, 1, 0))
+        self.assertFalse(core.allow_retry(dic, 1, 0))
 
     def test_get_backoff_time(self):
         dic = {}
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, core.get_backoff_time(dic, 1))
         dic["policy"] = None
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, core.get_backoff_time(dic, 1))
         dic["policy"] = ""
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, core.get_backoff_time(dic, 1))
         dic["policy"] = "no"
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, core.get_backoff_time(dic, 1))
         dic["policy"] = "yes"
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, core.get_backoff_time(dic, 1))
         dic["period"] = None
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, core.get_backoff_time(dic, 1))
         dic["period"] = -1
-        self.assertEqual(1, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(1, core.get_backoff_time(dic, 1))
         dic["period"] = 1000
-        self.assertEqual(1000, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(1000, core.get_backoff_time(dic, 1))
 
     def test_sleep(self):
         ts_before = int(round(time.time() * 1000))
-        TeaCore.sleep(1)
+        core.sleep(1)
         ts_after = int(round(time.time() * 1000))
         ts_subtract = ts_after - ts_before
-        self.assertTrue(ts_subtract < 1100 and ts_subtract >= 1000)
+        self.assertTrue(1000 <= ts_subtract < 1100)
 
     def test_is_retryable(self):
-        self.assertFalse(TeaCore.is_retryable("test"))
+        self.assertFalse(core.is_retryable("test"))
         ex = TeaException({})
-        self.assertTrue(TeaCore.is_retryable(ex))
+        self.assertTrue(core.is_retryable(ex))
 
     def test_bytes_readable(self):
         body = "test".encode('utf-8')
-        self.assertIsNotNone(TeaCore.bytes_readable(body))
+        self.assertIsNotNone(core.bytes_readable(body))

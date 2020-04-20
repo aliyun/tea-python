@@ -11,7 +11,7 @@ class RetryError(RuntimeError):
         self.data = None
 
 
-class UnretryableException(Exception):
+class UnRetryableException(Exception):
     def __init__(self, request, ex):
         super().__init__()
         self.last_request = request

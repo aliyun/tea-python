@@ -1,25 +1,22 @@
-import re
-
 from .exceptions import RequiredArgumentException
 
 
 class TeaModel:
-    _base_type = {int, float, bool, complex, str}
-    _list_type = {list, tuple, set}
-    _dict_type = {dict}
+    _BASE_TYPE = (int, float, bool, complex, str)
+    _LIST_TYPE = (list, tuple, set)
+    _DICT_TYPE = (dict,)
 
     def __init__(self):
         self._names = {}
         self._validations = {}
 
-    @staticmethod
-    def _entity_to_dict(obj):
-        if type(obj) in TeaModel._dict_type:
-            obj_rtn = {k: TeaModel._entity_to_dict(v) for k, v in obj.items()}
+    def _entity_to_dict(self, obj):
+        if isinstance(obj, self._DICT_TYPE):
+            obj_rtn = {k: self._entity_to_dict(v) for k, v in obj.items()}
             return obj_rtn
-        elif type(obj) in TeaModel._list_type:
-            return [TeaModel._entity_to_dict(v) for v in obj]
-        elif type(obj) in TeaModel._base_type:
+        elif isinstance(obj, self._LIST_TYPE):
+            return [self._entity_to_dict(v) for v in obj]
+        elif isinstance(obj, self._BASE_TYPE):
             return obj
         elif isinstance(obj, TeaModel):
             prop_list = [(p, not callable(getattr(obj, p)) and p[0] != "_")
@@ -27,7 +24,7 @@ class TeaModel:
             obj_rtn = {}
             for i in prop_list:
                 if i[1]:
-                    obj_rtn[obj._names.get(i[0]) or i[0]] = TeaModel._entity_to_dict(
+                    obj_rtn[obj._names.get(i[0]) or i[0]] = self._entity_to_dict(
                         getattr(obj, i[0]))
             return obj_rtn
 
@@ -37,7 +34,7 @@ class TeaModel:
         pros = {}
         for i in prop_list:
             if i[1]:
-                pros[self._names.get(i[0]) or i[0]] = TeaModel._entity_to_dict(
+                pros[self._names.get(i[0]) or i[0]] = self._entity_to_dict(
                     getattr(self, i[0]))
         return pros
 
@@ -50,3 +47,4 @@ class TeaModel:
                 v = getattr(self, attr_name)
                 if v is None or v == "":
                     raise RequiredArgumentException(attr_name)
+

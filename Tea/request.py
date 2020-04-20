@@ -1,6 +1,5 @@
 class TeaRequest:
     def __init__(self):
-        super().__init__()
         self.query = {}
         self.headers = {}
         self.protocol = "http"

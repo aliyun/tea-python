@@ -1,5 +1,5 @@
 from unittest import TestCase
-from Tea.exceptions import RetryError, UnretryableException, TeaException
+from Tea.exceptions import RetryError, UnRetryableException, TeaException
 from Tea.request import TeaRequest
 
 
@@ -15,8 +15,8 @@ class TestTeaCore(TestCase):
         ex = Exception()
         ex.message = "test exception"
         try:
-            raise UnretryableException(request, ex)
-        except UnretryableException as e:
+            raise UnRetryableException(request, ex)
+        except UnRetryableException as e:
             self.assertIsNotNone(e)
             self.assertIsNotNone(e.last_request)
             self.assertEqual("Retry failed:test exception", e.message)
