@@ -1,5 +1,5 @@
 from unittest import TestCase
-from Tea.exceptions import RetryError, UnretryableException, TeaException
+from Tea.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
 from Tea.request import TeaRequest
 
 
