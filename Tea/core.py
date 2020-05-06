@@ -89,3 +89,12 @@ def is_retryable(ex):
 
 def bytes_readable(body):
     return body
+
+def merge(*dic_list):
+    dic_result = {}
+    for dic in dic_list:
+        if dic is None:
+            continue
+        dic_result.update(dic)
+
+    return dic_result
