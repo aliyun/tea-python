@@ -4,6 +4,7 @@ import time
 from requests import Request, Session
 from Tea.exceptions import TeaException
 from urllib.parse import urlencode
+from Tea.response import TeaResponse
 
 
 def compose_url(request):
@@ -52,7 +53,7 @@ def do_action(request, runtime_option={}):
         resp = s.send(prepped, proxies=proxies,
                       timeout=(connect_timeout, read_timeout),
                       allow_redirects=False, cert=None)
-        return resp
+        return TeaResponse(resp)
 
 
 def get_response_body(resp):
