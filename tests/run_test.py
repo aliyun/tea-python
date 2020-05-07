@@ -4,6 +4,7 @@ import os
 
 class RunCase(unittest.TestCase):
     def test_case(self):
+        print(os.environ['PYTHONPATH'])
         case_path = os.getcwd()
         discover = unittest.defaultTestLoader.discover(
             case_path, pattern="test_*.py")
