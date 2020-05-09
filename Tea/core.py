@@ -32,12 +32,18 @@ class TeaCore:
     @staticmethod
     def do_action(request, runtime_option={}):
         url = TeaCore.compose_url(request)
-        connect_timeout = None
+        connect_timeout = 5000
+        read_timeout = 10000
+
         if 'connectTimeout' in runtime_option:
-            connect_timeout = runtime_option.get("connectTimeout")
-        read_timeout = None
+            option_connect_timeout = runtime_option["connectTimeout"]
+            connect_timeout = option_connect_timeout if option_connect_timeout else connect_timeout
+
         if 'readTimeout' in runtime_option:
-            read_timeout = runtime_option.get("readTimeout")
+            option_read_timeout = runtime_option["readTimeout"]
+            read_timeout = option_read_timeout if option_read_timeout else read_timeout
+
+        timeout = (int(connect_timeout)/1000, int(read_timeout)/1000)
         with Session() as s:
             req = Request(method=request.method, url=url,
                           data=request.body,
@@ -53,8 +59,7 @@ class TeaCore:
                 "https": proxy_https,
             }
             resp = s.send(prepped, proxies=proxies,
-                          timeout=(connect_timeout, read_timeout),
-                          allow_redirects=False, cert=None)
+                          timeout=timeout, cert=None)
             return TeaResponse(resp)
 
     @staticmethod

@@ -128,7 +128,24 @@ class Testcore(unittest.TestCase):
         request.headers['host'] = "www.alibabacloud.com"
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
-        resp = TeaCore.do_action(request)
+        option = {
+            "readTimeout": 0,
+            "connectTimeout": 0,
+            "httpProxy": None,
+            "httpsProxy": None,
+            "noProxy": None,
+            "maxIdleConns": None,
+            "retry": {
+                "retryable": None,
+                "maxAttempts": None
+            },
+            "backoff": {
+                "policy": None,
+                "period": None
+            },
+            "ignoreSSL": None
+        }
+        resp = TeaCore.do_action(request, option)
         self.assertIsNotNone(bytes.decode(resp.body))
 
     def test_get_response_body(self):
