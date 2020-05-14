@@ -30,8 +30,10 @@ class TeaCore:
         return url.strip("?").strip('&')
 
     @staticmethod
-    def do_action(request, runtime_option={}):
+    def do_action(request, runtime_option=None):
         url = TeaCore.compose_url(request)
+
+        runtime_option = runtime_option or {}
         connect_timeout = 5000
         read_timeout = 10000
 
@@ -43,14 +45,14 @@ class TeaCore:
             option_read_timeout = runtime_option["readTimeout"]
             read_timeout = option_read_timeout if option_read_timeout else read_timeout
 
-        timeout = (int(connect_timeout)/1000, int(read_timeout)/1000)
+        timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
         with Session() as s:
             req = Request(method=request.method, url=url,
-                          data=request.body,
-                          headers=request.headers)
+                          data=request.body, headers=request.headers)
             prepped = s.prepare_request(req)
             proxy_https = os.environ.get('HTTPS_PROXY') or os.environ.get(
-                'https_proxy')
+                'https_proxy'
+            )
             proxy_http = os.environ.get(
                 'HTTP_PROXY') or os.environ.get('http_proxy')
 
@@ -67,7 +69,7 @@ class TeaCore:
         return resp.content.decode("utf-8")
 
     @staticmethod
-    def allow_retry(dic, retry_times, now):
+    def allow_retry(dic, retry_times):
         if dic is None or not dic.__contains__("maxAttempts"):
             return False
         else:
@@ -78,7 +80,8 @@ class TeaCore:
     @staticmethod
     def get_backoff_time(dic, retry_times):
         back_off_time = 0
-        if not dic.__contains__("policy") or dic.get("policy") is None or len(dic.get("policy")) == 0 or dic.get("policy") == "no":
+        if not dic.__contains__("policy") or dic.get("policy") is None or len(dic.get("policy")) == 0 or dic.get(
+                "policy") == "no":
             return back_off_time
         if dic.__contains__("period") and dic.get("period") is not None:
             back_off_time = int(dic.get("period"))
@@ -98,6 +101,7 @@ class TeaCore:
     def bytes_readable(body):
         return body
 
+    @staticmethod
     def merge(*dic_list):
         dic_result = {}
         for dic in dic_list:
