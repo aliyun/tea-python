@@ -154,14 +154,14 @@ class Testcore(unittest.TestCase):
         self.assertAlmostEqual("test", TeaCore.get_response_body(moc_resp))
 
     def test_allow_retry(self):
-        self.assertFalse(TeaCore.allow_retry(None, 0, 0))
+        self.assertFalse(TeaCore.allow_retry(None, 0))
         dic = {}
-        self.assertFalse(TeaCore.allow_retry(dic, 0, 0))
+        self.assertFalse(TeaCore.allow_retry(dic, 0))
         dic["maxAttempts"] = 3
-        self.assertTrue(TeaCore.allow_retry(dic, 0, 0))
-        self.assertFalse(TeaCore.allow_retry(dic, 4, 0))
+        self.assertTrue(TeaCore.allow_retry(dic, 0))
+        self.assertFalse(TeaCore.allow_retry(dic, 4))
         dic["maxAttempts"] = None
-        self.assertFalse(TeaCore.allow_retry(dic, 1, 0))
+        self.assertFalse(TeaCore.allow_retry(dic, 1))
 
     def test_get_backoff_time(self):
         dic = {}
