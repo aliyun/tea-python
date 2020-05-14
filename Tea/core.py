@@ -69,7 +69,7 @@ class TeaCore:
         return resp.content.decode("utf-8")
 
     @staticmethod
-    def allow_retry(dic, retry_times):
+    def allow_retry(dic, retry_times, now):
         if dic is None or not dic.__contains__("maxAttempts"):
             return False
         else:
