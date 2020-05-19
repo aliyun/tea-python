@@ -1,3 +1,6 @@
+from _io import TextIOWrapper, BufferedReader
+
+
 class BaseStream:
     def __init__(self, size=1024):
         self.size = size
@@ -13,3 +16,6 @@ class BaseStream:
 
     def __iter__(self):
         return self
+
+
+STREAM_CLASS = (TextIOWrapper, BufferedReader, BaseStream)
