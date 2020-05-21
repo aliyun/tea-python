@@ -5,6 +5,7 @@ from requests import Request, Session
 from Tea.exceptions import TeaException
 from urllib.parse import urlencode
 from Tea.response import TeaResponse
+from Tea.model import TeaModel
 
 
 class TeaCore:
@@ -104,9 +105,10 @@ class TeaCore:
     @staticmethod
     def merge(*dic_list):
         dic_result = {}
-        for dic in dic_list:
-            if dic is None:
-                continue
-            dic_result.update(dic)
-
+        for item in dic_list:
+            if isinstance(item, dict):
+                if item is not None:
+                    dic_result.update(item)
+            elif isinstance(item, TeaModel):
+                dic_result.update(item.to_map())
         return dic_result

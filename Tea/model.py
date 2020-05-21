@@ -2,10 +2,6 @@ import re
 
 
 class TeaModel:
-    def __init__(self):
-        self._names = {}
-        self._validations = {}
-
     @staticmethod
     def validate_required(prop, prop_name):
         if prop is None:
