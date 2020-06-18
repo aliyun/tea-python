@@ -7,6 +7,9 @@ from urllib.parse import urlencode
 from Tea.response import TeaResponse
 from Tea.model import TeaModel
 
+DEFAULT_CONNECT_TIMEOUT = 5000
+DEFAULT_READ_TIMEOUT = 10000
+
 
 class TeaCore:
     @staticmethod
@@ -35,34 +38,35 @@ class TeaCore:
         url = TeaCore.compose_url(request)
 
         runtime_option = runtime_option or {}
-        connect_timeout = 5000
-        read_timeout = 10000
 
-        if 'connectTimeout' in runtime_option:
-            option_connect_timeout = runtime_option["connectTimeout"]
-            connect_timeout = option_connect_timeout if option_connect_timeout else connect_timeout
+        verify = not runtime_option.get('ignoreSSL', False)
 
-        if 'readTimeout' in runtime_option:
-            option_read_timeout = runtime_option["readTimeout"]
-            read_timeout = option_read_timeout if option_read_timeout else read_timeout
+        connect_timeout = runtime_option.get('connectTimeout')
+        connect_timeout = connect_timeout if connect_timeout else DEFAULT_CONNECT_TIMEOUT
+
+        read_timeout = runtime_option.get('readTimeout')
+        read_timeout = read_timeout if read_timeout else DEFAULT_READ_TIMEOUT
 
         timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
         with Session() as s:
             req = Request(method=request.method, url=url,
                           data=request.body, headers=request.headers)
             prepped = s.prepare_request(req)
-            proxy_https = os.environ.get('HTTPS_PROXY') or os.environ.get(
-                'https_proxy'
-            )
-            proxy_http = os.environ.get(
-                'HTTP_PROXY') or os.environ.get('http_proxy')
+
+            http_proxy = runtime_option.get('httpProxy')
+            https_proxy = runtime_option.get('httpsProxy')
+
+            if not http_proxy:
+                http_proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
+            if not https_proxy:
+                https_proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
             proxies = {
-                "http": proxy_http,
-                "https": proxy_https,
+                "http": http_proxy,
+                "https": https_proxy,
             }
             resp = s.send(prepped, proxies=proxies,
-                          timeout=timeout, cert=None)
+                          timeout=timeout, verify=verify, cert=None)
             return TeaResponse(resp)
 
     @staticmethod
@@ -81,8 +85,8 @@ class TeaCore:
     @staticmethod
     def get_backoff_time(dic, retry_times):
         back_off_time = 0
-        if not dic.__contains__("policy") or dic.get("policy") is None or len(dic.get("policy")) == 0 or dic.get(
-                "policy") == "no":
+        if not dic.__contains__("policy") or dic.get("policy") is None or \
+                len(dic.get("policy")) == 0 or dic.get("policy") == "no":
             return back_off_time
         if dic.__contains__("period") and dic.get("period") is not None:
             back_off_time = int(dic.get("period"))
