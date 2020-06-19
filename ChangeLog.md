@@ -1,3 +1,8 @@
+### 2020-05-21 Version 0.0.4
+* Supported ignore ssl
+* Supported http proxy
+* Supported https proxy
+
 ### 2020-05-21 Version 0.0.3
 * Support merge TeaModel
 * Add BaseStream class
