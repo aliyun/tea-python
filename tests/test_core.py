@@ -2,7 +2,6 @@ import unittest
 import time
 
 from unittest import mock
-from requests import Request, Session
 
 from Tea.model import TeaModel
 from Tea.core import TeaCore
@@ -125,7 +124,7 @@ class Testcore(unittest.TestCase):
 
     def test_do_action(self):
         request = TeaRequest()
-        request.headers['host'] = "www.alibabacloud.com"
+        request.headers['host'] = "www.aliyun.com"
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
         option = {

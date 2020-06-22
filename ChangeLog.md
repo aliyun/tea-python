@@ -1,3 +1,6 @@
+### 2020-06-22 Version 0.0.5
+* Supported python 3.4
+
 ### 2020-05-21 Version 0.0.4
 * Supported ignore ssl
 * Supported http proxy
