@@ -28,7 +28,7 @@ class TeaCore:
             encode_query = {}
             for key in request.query:
                 value = request.query[key]
-                if value is not None and value != "":
+                if value is not None:
                     encode_query[key] = str(value)
             url += urlencode(encode_query)
         return url.strip("?").strip('&')
