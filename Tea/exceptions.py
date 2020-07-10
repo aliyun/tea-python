@@ -13,7 +13,7 @@ class UnretryableException(Exception):
     def __init__(self, request, ex):
         self.last_request = request
         self.inner_exception = ex
-        self.message = "Retry failed:" + ex.message
+        self.message = "Retry failed: %s" % ex.message
 
 
 class TeaException(Exception):
