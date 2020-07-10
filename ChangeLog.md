@@ -1,3 +1,7 @@
+### 2020-07-10 Version 0.0.6
+
+* Fixed type error when concatenating strings
+
 ### 2020-06-22 Version 0.0.5
 * Supported python 3.4
 
