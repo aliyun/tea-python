@@ -1,3 +1,7 @@
+### 2020-07-13 Version 0.0.7
+
+* Fixed compose_url to get correct rpc signature
+
 ### 2020-07-10 Version 0.0.6
 
 * Fixed type error when concatenating strings
