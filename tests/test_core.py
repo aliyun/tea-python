@@ -11,7 +11,6 @@ from Tea.exceptions import TeaException
 
 class BaseUserResponse(TeaModel):
     def __init__(self):
-        super().__init__()
         self.avatar = None
         self.createdAt = None
         self.defaultDriveId = None
@@ -25,6 +24,23 @@ class BaseUserResponse(TeaModel):
         self.updatedAt = None
         self.userId = None
         self.userName = None
+
+    def to_map(self):
+        return {
+            'avatar': self.avatar,
+            'createdAt': self.createdAt,
+            'defaultDriveId': self.defaultDriveId,
+            'description': self.description,
+            'domainId': self.domainId,
+            'email': self.email,
+            'nickName': self.nickName,
+            'phone': self.phone,
+            'role': self.role,
+            'status': self.status,
+            'updatedAt': self.updatedAt,
+            'userId': self.userId,
+            'userName': self.userName,
+        }
 
     @classmethod
     def names(cls):
@@ -195,3 +211,25 @@ class Testcore(unittest.TestCase):
     def test_bytes_readable(self):
         body = "test".encode('utf-8')
         self.assertIsNotNone(TeaCore.bytes_readable(body))
+
+    def test_merge(self):
+        model = BaseUserResponse()
+        dic = TeaCore.merge(model, {'k1': 'test'})
+        self.assertEqual(
+            {
+                'avatar': None,
+                'createdAt': None,
+                'defaultDriveId': None,
+                'description': None,
+                'domainId': None,
+                'email': None,
+                'nickName': None,
+                'phone': None,
+                'role': None,
+                'status': None,
+                'updatedAt': None,
+                'userId': None,
+                'userName': None,
+                'k1': 'test'
+            }, dic
+        )
