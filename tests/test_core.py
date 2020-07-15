@@ -115,7 +115,7 @@ class Testcore(unittest.TestCase):
                          TeaCore.compose_url(request))
 
         request.query["foo"] = ""
-        self.assertEqual("http://fake.domain.com:8080/index.html",
+        self.assertEqual("http://fake.domain.com:8080/index.html?foo=",
                          TeaCore.compose_url(request))
 
         request.query["foo"] = "bar"
@@ -132,10 +132,6 @@ class Testcore(unittest.TestCase):
 
         request.query["fake"] = None
         self.assertEqual("http://fake.domain.com:8080/index.html?a=b&foo=bar",
-                         TeaCore.compose_url(request))
-
-        request.query["fake"] = "val*"
-        self.assertEqual("http://fake.domain.com:8080/index.html?a=b&foo=bar&fake=val%2A",
                          TeaCore.compose_url(request))
 
     def test_do_action(self):

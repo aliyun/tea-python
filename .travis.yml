@@ -13,7 +13,6 @@ install:
   - pip install requests
 # command to run tests
 script:
-  - cd tests
-  - coverage run --source=Tea run_test.py
+  - coverage run --source=Tea -m pytest tests/test_*
   - wget --no-check-certificate https://codecov.io/bash -O codecov.sh
   - bash codecov.sh -cF "python"
