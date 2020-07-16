@@ -14,24 +14,34 @@ DEFAULT_READ_TIMEOUT = 10000
 class TeaCore:
     @staticmethod
     def compose_url(request):
-        url = str(request.protocol).lower() + "://"
-        url += request.headers.get('host') or ""
-        if request.port != 80:
-            url += ":" + str(request.port)
-        url += request.pathname or ""
-        if (request.query is not None) and len(request.query) > 0:
+        host = request.headers.get('host', '').rstrip('/')
+        protocol = '%s://' % request.protocol.lower()
+        pathname = request.pathname
+
+        if host.startswith(('http://', 'https://')):
+            protocol = ''
+
+        if request.port == 80:
+            port = ''
+        else:
+            port = ':%s' % request.port
+
+        url = protocol + host + port + pathname
+
+        if request.query:
             if "?" in url:
                 if not url.endswith("&"):
                     url += "&"
             else:
                 url += "?"
+
             encode_query = {}
             for key in request.query:
                 value = request.query[key]
                 if value is not None:
                     encode_query[key] = str(value)
             url += urlencode(encode_query)
-        return url.strip("?").strip('&')
+        return url.rstrip("?&")
 
     @staticmethod
     def do_action(request, runtime_option=None):
@@ -84,14 +94,19 @@ class TeaCore:
 
     @staticmethod
     def get_backoff_time(dic, retry_times):
-        back_off_time = 0
-        if not dic.__contains__("policy") or dic.get("policy") is None or \
-                len(dic.get("policy")) == 0 or dic.get("policy") == "no":
-            return back_off_time
-        if dic.__contains__("period") and dic.get("period") is not None:
-            back_off_time = int(dic.get("period"))
-            if back_off_time <= 0:
-                return retry_times
+        default_back_off_time = 0
+        if dic is None or not dic.get("policy") or dic.get("policy") == "no":
+            return default_back_off_time
+
+        back_off_time = dic.get('period', default_back_off_time)
+        if not isinstance(back_off_time, int) and \
+                not (isinstance(back_off_time, str) and back_off_time.isdigit()):
+            return default_back_off_time
+
+        back_off_time = int(back_off_time)
+        if back_off_time < 0:
+            return retry_times
+
         return back_off_time
 
     @staticmethod
