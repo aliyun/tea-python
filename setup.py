@@ -33,6 +33,7 @@ if sys.version_info.major == 3:
 else:
     raise EnvironmentError('The library only supports python3')
 
+
 PACKAGE = "Tea"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"

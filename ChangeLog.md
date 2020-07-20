@@ -1,3 +1,8 @@
+### 2020-07-20 Version 0.0.8
+
+* Improve combination url.
+* Improve install requires library version.
+
 ### 2020-07-13 Version 0.0.7
 
 * Fixed compose_url to get correct rpc signature
