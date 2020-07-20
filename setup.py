@@ -1,4 +1,4 @@
-'''
+"""
  Licensed to the Apache Software Foundation (ASF) under one
  or more contributor license agreements.  See the NOTICE file
  distributed with this work for additional information
@@ -13,8 +13,9 @@
  KIND, either express or implied.  See the License for the
  specific language governing permissions and limitations
  under the License.
-'''
+"""
 
+import sys
 import os
 from setuptools import setup, find_packages
 
@@ -24,6 +25,14 @@ Created on 3/24/2020
 @author: Alibaba Cloud
 """
 
+if sys.version_info.major == 3:
+    if sys.version_info.minor > 4:
+        install_requires = ['requests>=2.21.0, <3.0.0']
+    else:
+        install_requires = ['requests==2.21.0']
+else:
+    raise EnvironmentError('The library only supports python3')
+
 PACKAGE = "Tea"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
@@ -32,7 +41,7 @@ URL = "https://github.com/aliyun/tea-python/tree/master/python"
 TOPDIR = os.path.dirname(__file__) or "."
 VERSION = __import__(PACKAGE).__version__
 
-with open("README.md",encoding="utf-8") as fp:
+with open("README.md", encoding="utf-8") as fp:
     LONG_DESCRIPTION = fp.read()
 
 setup_args = {
@@ -46,7 +55,7 @@ setup_args = {
     'keywords': ["alibabacloud", "sdk", "tea"],
     'packages': find_packages(exclude=["tests*"]),
     'platforms': 'any',
-    'install_requires': ['requests==2.21.0'],
+    'install_requires': install_requires,
     'classifiers': (
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
