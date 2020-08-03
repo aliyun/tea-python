@@ -63,20 +63,29 @@ class TeaCore:
                           data=request.body, headers=request.headers)
             prepped = s.prepare_request(req)
 
+            proxies = {}
             http_proxy = runtime_option.get('httpProxy')
             https_proxy = runtime_option.get('httpsProxy')
+            no_proxy = runtime_option.get('noProxy')
 
             if not http_proxy:
                 http_proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
             if not https_proxy:
                 https_proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
-            proxies = {
-                "http": http_proxy,
-                "https": https_proxy,
-            }
-            resp = s.send(prepped, proxies=proxies,
-                          timeout=timeout, verify=verify, cert=None)
+            if http_proxy:
+                proxies['http'] = http_proxy
+            if https_proxy:
+                proxies['https'] = https_proxy
+            if no_proxy:
+                proxies['no_proxy'] = no_proxy
+
+            resp = s.send(
+                prepped,
+                proxies=proxies,
+                timeout=timeout,
+                verify=verify,
+            )
             return TeaResponse(resp)
 
     @staticmethod
