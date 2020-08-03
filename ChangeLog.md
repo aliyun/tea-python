@@ -1,3 +1,7 @@
+### 2020-08-03 Version 0.0.9
+
+* Support Bytes IO
+
 ### 2020-07-20 Version 0.0.8
 
 * Improve combination url.
