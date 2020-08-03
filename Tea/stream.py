@@ -1,4 +1,4 @@
-from _io import TextIOWrapper, BufferedReader
+from _io import TextIOWrapper, BufferedReader, BytesIO
 
 
 class BaseStream:
@@ -6,16 +6,16 @@ class BaseStream:
         self.size = size
 
     def read(self, size=1024):
-        raise ImportError('read method must be overridden')
+        raise NotImplementedError('read method must be overridden')
 
     def __len__(self):
-        raise ImportError('__len__ method must be overridden')
+        raise NotImplementedError('__len__ method must be overridden')
 
     def __next__(self):
-        raise ImportError('__next__ method must be overridden')
+        raise NotImplementedError('__next__ method must be overridden')
 
     def __iter__(self):
         return self
 
 
-STREAM_CLASS = (TextIOWrapper, BufferedReader, BaseStream)
+STREAM_CLASS = (TextIOWrapper, BufferedReader, BaseStream, BytesIO)
