@@ -1,3 +1,7 @@
+### 2020-08-21 Version 0.1.0
+
+* Improve model compatibility.
+
 ### 2020-08-03 Version 0.0.9
 
 * Support Bytes IO

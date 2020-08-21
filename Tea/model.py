@@ -19,16 +19,16 @@ class TeaModel:
 
     @staticmethod
     def validate_pattern(prop, prop_name, pattern):
-        match_obj = re.search(pattern, prop, re.M | re.I)
+        match_obj = re.search(pattern, str(prop), re.M | re.I)
         if not match_obj:
             raise Exception(prop_name + ' is not match : ' + pattern)
 
     @staticmethod
     def validate_maximum(num, maximum):
-        if num > maximum:
+        if int(num) > maximum:
             raise Exception('the number is greater than the maximum')
 
     @staticmethod
     def validate_minimum(num, minimum):
-        if num < minimum:
+        if int(num) < minimum:
             raise Exception('the number is less than the minimum')
