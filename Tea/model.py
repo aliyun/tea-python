@@ -1,11 +1,12 @@
 import re
+from .exceptions import RequiredArgumentException
 
 
 class TeaModel:
     @staticmethod
     def validate_required(prop, prop_name):
         if prop is None:
-            raise Exception(prop_name + ' is required.')
+            raise RequiredArgumentException(prop_name + ' is required.')
 
     @staticmethod
     def validate_max_length(prop, prop_name, max_length):
@@ -25,10 +26,10 @@ class TeaModel:
 
     @staticmethod
     def validate_maximum(num, maximum):
-        if int(num) > maximum:
+        if num > maximum:
             raise Exception('the number is greater than the maximum')
 
     @staticmethod
     def validate_minimum(num, minimum):
-        if int(num) < minimum:
+        if num < minimum:
             raise Exception('the number is less than the minimum')

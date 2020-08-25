@@ -2,7 +2,7 @@ import os
 import time
 
 from requests import Request, Session
-from Tea.exceptions import TeaException
+from Tea.exceptions import TeaException, RequiredArgumentException
 from urllib.parse import urlencode
 from Tea.response import TeaResponse
 from Tea.model import TeaModel
@@ -14,7 +14,11 @@ DEFAULT_READ_TIMEOUT = 10000
 class TeaCore:
     @staticmethod
     def compose_url(request):
-        host = request.headers.get('host', '').rstrip('/')
+        host = request.headers.get('host')
+        if not host:
+            raise RequiredArgumentException('endpoint')
+        else:
+            host = host.rstrip('/')
         protocol = '%s://' % request.protocol.lower()
         pathname = request.pathname
 

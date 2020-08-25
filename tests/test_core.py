@@ -101,7 +101,10 @@ class ListUserResponse(TeaModel):
 class Testcore(unittest.TestCase):
     def test_compose_url(self):
         request = TeaRequest()
-        self.assertEqual("http://", TeaCore.compose_url(request))
+        try:
+            TeaCore.compose_url(request)
+        except Exception as e:
+            self.assertEqual('endpoint is required.', str(e))
 
         request.headers['host'] = "fake.domain.com"
         self.assertEqual("http://fake.domain.com",
