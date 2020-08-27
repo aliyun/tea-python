@@ -1,4 +1,8 @@
-from _io import TextIOWrapper, BufferedReader, BytesIO
+from _io import (
+    TextIOWrapper,
+    BufferedReader, BytesIO,
+    BufferedWriter
+)
 
 
 class BaseStream:
@@ -19,3 +23,5 @@ class BaseStream:
 
 
 STREAM_CLASS = (TextIOWrapper, BufferedReader, BaseStream, BytesIO)
+READABLE = (BaseStream, BufferedReader, BytesIO)
+WRITABLE = (BufferedWriter,)

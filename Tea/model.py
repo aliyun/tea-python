@@ -3,6 +3,15 @@ from .exceptions import RequiredArgumentException
 
 
 class TeaModel:
+    def validate(self):
+        pass
+
+    def to_map(self):
+        pass
+
+    def from_map(self):
+        pass
+
     @staticmethod
     def validate_required(prop, prop_name):
         if prop is None:
