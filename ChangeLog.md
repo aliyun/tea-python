@@ -1,3 +1,8 @@
+### 2020-08-27 Version 0.1.1
+
+* Add readable & writable.
+* Improve exception message.
+
 ### 2020-08-21 Version 0.1.0
 
 * Improve model compatibility.
