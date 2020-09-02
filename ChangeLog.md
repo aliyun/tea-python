@@ -1,3 +1,7 @@
+### 2020-09-02 Version 0.1.2
+
+* Fix string format.
+
 ### 2020-08-27 Version 0.1.1
 
 * Add readable & writable.
