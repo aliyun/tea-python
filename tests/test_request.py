@@ -13,3 +13,6 @@ class TestTeaRequest(unittest.TestCase):
         self.assertEqual('GET', request.method)
         self.assertEqual("", request.pathname)
         self.assertEqual(None, request.body)
+
+        request.query = None
+        self.assertEqual({}, request.query)
