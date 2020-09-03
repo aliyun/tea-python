@@ -31,3 +31,10 @@ class TestTeaCore(TestCase):
             self.assertEqual("message", e.message)
             self.assertIsNotNone(e.data)
             self.assertEqual("test", e.data.get("test"))
+
+    def test_RequiredArgumentException(self):
+        param_name = 'name'
+        try:
+            raise RequiredArgumentException(param_name)
+        except RequiredArgumentException as e:
+            self.assertEqual('name is required.', str(e))

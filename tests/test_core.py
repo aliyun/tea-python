@@ -2,6 +2,8 @@ import unittest
 import time
 
 from unittest import mock
+from urllib3.exceptions import MaxRetryError
+from requests.exceptions import ProxyError
 
 from Tea.model import TeaModel
 from Tea.core import TeaCore
@@ -109,6 +111,11 @@ class Testcore(unittest.TestCase):
         request.headers['host'] = "fake.domain.com"
         self.assertEqual("http://fake.domain.com",
                          TeaCore.compose_url(request))
+
+        request.headers['host'] = "http://fake.domain.com"
+        self.assertEqual("http://fake.domain.com",
+                         TeaCore.compose_url(request))
+
         request.port = 8080
         self.assertEqual("http://fake.domain.com:8080",
                          TeaCore.compose_url(request))
@@ -161,6 +168,14 @@ class Testcore(unittest.TestCase):
         }
         resp = TeaCore.do_action(request, option)
         self.assertIsNotNone(bytes.decode(resp.body))
+
+        option['httpProxy'] = '127.0.0.1'
+        option['httpsProxy'] = '127.0.0.1'
+        option['noProxy'] = '127.0.0.1'
+        try:
+            TeaCore.do_action(request, option)
+        except Exception as e:
+            self.assertIsInstance(e, ProxyError)
 
     def test_get_response_body(self):
         moc_resp = mock.Mock()
