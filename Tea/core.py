@@ -1,17 +1,45 @@
+import logging
 import os
 import time
+from urllib.parse import urlencode, urlparse
 
-from requests import Request, Session
+from requests import Request, Session, status_codes
+
 from Tea.exceptions import TeaException, RequiredArgumentException
-from urllib.parse import urlencode
-from Tea.response import TeaResponse
 from Tea.model import TeaModel
+from Tea.response import TeaResponse
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
 
+logger = logging.getLogger('alibabacloud-tea')
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+logger.addHandler(ch)
+
 
 class TeaCore:
+    @staticmethod
+    def _prepare_http_debug(request, symbol):
+        base = ''
+        for key, value in request.headers.items():
+            base += '\n%s %s : %s' % (symbol, key, value)
+        return base
+
+    @staticmethod
+    def _do_http_debug(request, response):
+        # logger the request
+        url = urlparse(request.url)
+        request_base = '\n> %s %s HTTP/1.1' % (request.method.upper(), url.path + url.query)
+        logger.debug(request_base + TeaCore._prepare_http_debug(request, '>'))
+
+        # logger the response
+        response_base = '\n< HTTP/1.1 %s %s' % (
+            response.status_code,
+            status_codes._codes.get(response.status_code)[0].upper()
+        )
+        logger.debug(response_base + TeaCore._prepare_http_debug(response, '<'))
+
     @staticmethod
     def compose_url(request):
         host = request.headers.get('host')
@@ -90,6 +118,10 @@ class TeaCore:
                 timeout=timeout,
                 verify=verify,
             )
+
+            debug = runtime_option.get('debug') or os.getenv('DEBUG')
+            if debug and debug.lower() == 'sdk':
+                TeaCore._do_http_debug(req, resp)
             return TeaResponse(resp)
 
     @staticmethod
