@@ -2,7 +2,6 @@ import unittest
 import time
 
 from unittest import mock
-from urllib3.exceptions import MaxRetryError
 from requests.exceptions import ProxyError
 
 from Tea.model import TeaModel
@@ -164,6 +163,7 @@ class Testcore(unittest.TestCase):
                 "policy": None,
                 "period": None
             },
+            'debug': 'sdk',
             "ignoreSSL": None
         }
         resp = TeaCore.do_action(request, option)
