@@ -1,3 +1,7 @@
+### 2020-09-18 Version 0.1.3
+
+* Print debugging information in debug mode when configuring DEBUG environment variables.
+
 ### 2020-09-02 Version 0.1.2
 
 * Fix string format.
