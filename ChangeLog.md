@@ -1,3 +1,7 @@
+### 2020-09-24 Version 0.1.4
+
+* Improve the message of failed model verification.
+
 ### 2020-09-18 Version 0.1.3
 
 * Print debugging information in debug mode when configuring DEBUG environment variables.
