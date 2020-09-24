@@ -36,9 +36,9 @@ class TeaModel:
     @staticmethod
     def validate_maximum(num, maximum):
         if num > maximum:
-            raise Exception('the number is greater than the maximum')
+            raise Exception('%s is greater than the maximum: %s' % (num, maximum))
 
     @staticmethod
     def validate_minimum(num, minimum):
         if num < minimum:
-            raise Exception('the number is less than the minimum')
+            raise Exception('%s is less than the minimum: %s' % (num, minimum))

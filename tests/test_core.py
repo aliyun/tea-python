@@ -105,7 +105,7 @@ class Testcore(unittest.TestCase):
         try:
             TeaCore.compose_url(request)
         except Exception as e:
-            self.assertEqual('endpoint is required.', str(e))
+            self.assertEqual('"endpoint" is required.', str(e))
 
         request.headers['host'] = "fake.domain.com"
         self.assertEqual("http://fake.domain.com",

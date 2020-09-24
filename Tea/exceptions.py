@@ -10,7 +10,7 @@ class RequiredArgumentException(TeaException):
         self.arg = arg
 
     def __str__(self):
-        return '%s is required.' % self.arg
+        return '"%s" is required.' % self.arg
 
 
 class RetryError(TeaException):

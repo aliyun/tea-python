@@ -48,7 +48,7 @@ class TestTeaModel(unittest.TestCase):
             tm.validate_required(None, 'prop_name')
             assert False
         except Exception as e:
-            self.assertEqual('prop_name is required.', str(e))
+            self.assertEqual('"prop_name" is required.', str(e))
 
     def test_validate_max_length(self):
         tm = TeaModel()
@@ -90,7 +90,7 @@ class TestTeaModel(unittest.TestCase):
             tm.validate_maximum(10, 1)
             assert False
         except Exception as e:
-            self.assertEqual('the number is greater than the maximum', str(e))
+            self.assertEqual('10 is greater than the maximum: 1', str(e))
 
     def test_validate_minimum(self):
         tm = TeaModel()
@@ -100,4 +100,4 @@ class TestTeaModel(unittest.TestCase):
             tm.validate_minimum(1, 10)
             assert False
         except Exception as e:
-            self.assertEqual('the number is less than the minimum', str(e))
+            self.assertEqual('1 is less than the minimum: 10', str(e))

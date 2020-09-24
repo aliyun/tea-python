@@ -37,4 +37,4 @@ class TestTeaCore(TestCase):
         try:
             raise RequiredArgumentException(param_name)
         except RequiredArgumentException as e:
-            self.assertEqual('name is required.', str(e))
+            self.assertEqual('"name" is required.', str(e))
