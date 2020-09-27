@@ -7,7 +7,6 @@ from Tea.model import TeaModel
 class TestTeaModel(unittest.TestCase):
     class TestRegModel(TeaModel):
         def __init__(self):
-            super().__init__()
             self.requestId = "requestID"
             self.items = []
             self.nextMarker = "next"
@@ -15,9 +14,18 @@ class TestTeaModel(unittest.TestCase):
             self.subModel = None
             self.testListStr = ["str", "test"]
 
+        def to_map(self):
+            result = {}
+            result['requestId'] = self.requestId
+            result['items'] = self.items
+            result['nextMarker'] = self.nextMarker
+            result['testNoAttr'] = self.testNoAttr
+            result['subModel'] = self.subModel
+            result['testListStr'] = self.testListStr
+            return result
+
     class TestRegSubModel(TeaModel):
         def __init__(self):
-            super().__init__()
             self.requestId = "subRequestID"
             self.testInt = 1
             self.test_dict = {'a': 1, 'b': {
@@ -25,7 +33,6 @@ class TestTeaModel(unittest.TestCase):
 
     class TestModel(TeaModel):
         def __init__(self):
-            super().__init__()
             self.a = "a"
             self.b = "b"
             self.c = "c"
@@ -84,20 +91,27 @@ class TestTeaModel(unittest.TestCase):
 
     def test_validate_maximum(self):
         tm = TeaModel()
-        tm.validate_maximum(1, 10)
+        tm.validate_maximum(1, 'count', 10)
 
         try:
-            tm.validate_maximum(10, 1)
+            tm.validate_maximum(10, 'count', 1)
             assert False
         except Exception as e:
-            self.assertEqual('10 is greater than the maximum: 1', str(e))
+            self.assertEqual('count is greater than the maximum: 1', str(e))
 
     def test_validate_minimum(self):
         tm = TeaModel()
-        tm.validate_minimum(10, 1)
+        tm.validate_minimum(10, 'count', 1)
 
         try:
-            tm.validate_minimum(1, 10)
+            tm.validate_minimum(1, 'count', 10,)
             assert False
         except Exception as e:
-            self.assertEqual('1 is less than the minimum: 10', str(e))
+            self.assertEqual('count is less than the minimum: 10', str(e))
+
+    def test_str(self):
+        model = str(self.TestRegModel())
+        tm = str(TeaModel())
+        self.assertTrue(model.startswith('{\''))
+        self.assertTrue(model.endswith('}'))
+        self.assertTrue(tm.startswith('<Tea.model.TeaModel object'))

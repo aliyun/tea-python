@@ -34,11 +34,18 @@ class TeaModel:
             raise Exception('%s is not match: %s' % (prop_name, pattern))
 
     @staticmethod
-    def validate_maximum(num, maximum):
+    def validate_maximum(num, prop_name, maximum):
         if num > maximum:
-            raise Exception('%s is greater than the maximum: %s' % (num, maximum))
+            raise Exception('%s is greater than the maximum: %s' % (prop_name, maximum))
 
     @staticmethod
-    def validate_minimum(num, minimum):
+    def validate_minimum(num, prop_name, minimum):
         if num < minimum:
-            raise Exception('%s is less than the minimum: %s' % (num, minimum))
+            raise Exception('%s is less than the minimum: %s' % (prop_name, minimum))
+
+    def __str__(self):
+        s = self.to_map()
+        if s:
+            return str(s)
+        else:
+            return object.__str__(self)
