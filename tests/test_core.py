@@ -43,39 +43,22 @@ class BaseUserResponse(TeaModel):
             'userName': self.userName,
         }
 
-    @classmethod
-    def names(cls):
-        return {
-            "avatar": "avatar",
-            "createdAt": "created_at",
-            "defaultDriveId": "default_driveId",
-            "description": "description",
-            "domainId": "domain_id",
-            "email": "email",
-            "nickName": "nick_name",
-            "phone": "phone",
-            "role": "role",
-            "status": "status",
-            "updatedAt": "updated_at",
-            "userName": "user_name",
-        }
-
-    @classmethod
-    def requireds(cls):
-        return {
-            "avatar": False,
-            "createdAt": False,
-            "defaultDriveId": False,
-            "description": False,
-            "domainId": False,
-            "email": False,
-            "nickName": False,
-            "phone": False,
-            "role": False,
-            "status": False,
-            "updatedAt": False,
-            "userName": False,
-        }
+    def from_map(self, map=None):
+        dic = map or {}
+        self.avatar = dic.get('avatar')
+        self.createdAt = dic.get('createdAt')
+        self.defaultDriveId = dic.get('defaultDriveId')
+        self.description = dic.get('description')
+        self.domainId = dic.get('domainId')
+        self.email = dic.get('email')
+        self.nickName = dic.get('nickName')
+        self.phone = dic.get('phone')
+        self.role = dic.get('role')
+        self.status = dic.get('status')
+        self.updatedAt = dic.get('updatedAt')
+        self.userId = dic.get('userId')
+        self.userName = dic.get('userName')
+        return self
 
 
 class ListUserResponse(TeaModel):
@@ -247,3 +230,25 @@ class Testcore(unittest.TestCase):
                 'k1': 'test'
             }, dic
         )
+
+    def test_to_map(self):
+        model = BaseUserResponse()
+        model.phone = '139xxx'
+        model.domainId = 'domainId'
+        m = TeaCore.to_map(model)
+        self.assertEqual('139xxx', m['phone'])
+        self.assertEqual('domainId', m['domainId'])
+        m = TeaCore.to_map(None)
+        self.assertEqual({}, m)
+
+    def test_from_map(self):
+        model = BaseUserResponse()
+        model.phone = '139xxx'
+        model.domainId = 'domainId'
+        m = {
+            'phone': '138',
+            'domainId': 'test'
+        }
+        model1 = TeaCore.from_map(model, m)
+        self.assertEqual('138', model1.phone)
+        self.assertEqual('test', model1.domainId)
