@@ -9,7 +9,7 @@ class TeaModel:
     def to_map(self):
         pass
 
-    def from_map(self):
+    def from_map(self, map=None):
         pass
 
     @staticmethod

@@ -176,3 +176,17 @@ class TeaCore:
             elif isinstance(item, TeaModel):
                 dic_result.update(item.to_map())
         return dic_result
+
+    @staticmethod
+    def to_map(model):
+        if isinstance(model, TeaModel):
+            return model.to_map()
+        else:
+            return {}
+
+    @staticmethod
+    def from_map(model, dic):
+        if isinstance(model, TeaModel):
+            return model.from_map(dic)
+        else:
+            return model
