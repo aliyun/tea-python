@@ -1,3 +1,7 @@
+### 2020-10-30 Version 0.2.4
+
+* Add to_map & from_map methods.
+
 ### 2020-09-24 Version 0.1.4
 
 * Improve the message of failed model verification.
