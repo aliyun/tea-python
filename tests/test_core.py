@@ -150,6 +150,7 @@ class Testcore(unittest.TestCase):
             "ignoreSSL": None
         }
         resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
         option['httpProxy'] = '127.0.0.1'
