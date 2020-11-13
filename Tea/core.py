@@ -122,6 +122,7 @@ class TeaCore:
             debug = runtime_option.get('debug') or os.getenv('DEBUG')
             if debug and debug.lower() == 'sdk':
                 TeaCore._do_http_debug(req, resp)
+            resp.headers = {k.lower(): v for k, v in resp.headers.items()}
             return TeaResponse(resp)
 
     @staticmethod
