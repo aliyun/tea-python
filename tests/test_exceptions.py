@@ -3,7 +3,7 @@ from Tea.exceptions import RetryError, UnretryableException, TeaException, Requi
 from Tea.request import TeaRequest
 
 
-class TestTeaCore(TestCase):
+class TestTeaException(TestCase):
     def test_retry_error(self):
         try:
             raise RetryError('test_retry_error')
