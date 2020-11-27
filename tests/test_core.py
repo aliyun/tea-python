@@ -1,6 +1,8 @@
 import unittest
 import time
+import asyncio
 
+from aiohttp.client_exceptions import ClientProxyConnectionError
 from unittest import mock
 from requests.exceptions import ProxyError
 
@@ -158,8 +160,49 @@ class Testcore(unittest.TestCase):
         option['noProxy'] = '127.0.0.1'
         try:
             TeaCore.do_action(request, option)
+            assert False
         except Exception as e:
             self.assertIsInstance(e, ProxyError)
+
+    def test_async_do_action(self):
+        request = TeaRequest()
+        request.headers['host'] = "www.aliyun.com"
+        request.protocol = 'https'
+        request.pathname = "/s/zh"
+        request.query["k"] = "ecs"
+        option = {
+            "readTimeout": 0,
+            "connectTimeout": 0,
+            "httpProxy": None,
+            "httpsProxy": None,
+            "noProxy": None,
+            "maxIdleConns": None,
+            "retry": {
+                "retryable": None,
+                "maxAttempts": None
+            },
+            "backoff": {
+                "policy": None,
+                "period": None
+            },
+            "ignoreSSL": None
+        }
+        loop = asyncio.get_event_loop()
+        task = asyncio.ensure_future(
+            TeaCore.async_do_action(request, option)
+        )
+        loop.run_until_complete(task)
+        response = task.result()
+        self.assertTrue(response.headers.get('server'))
+        self.assertIsNotNone(bytes.decode(response.body))
+
+        request.protocol = 'http'
+        option['httpProxy'] = 'http://127.0.0.1'
+        try:
+            loop.run_until_complete(TeaCore.async_do_action(request, option))
+            assert False
+        except Exception as e:
+            self.assertIsInstance(e, ClientProxyConnectionError)
 
     def test_get_response_body(self):
         moc_resp = mock.Mock()

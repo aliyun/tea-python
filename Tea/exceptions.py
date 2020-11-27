@@ -1,8 +1,14 @@
+from .request import TeaRequest
+
+
 class TeaException(Exception):
     def __init__(self, dic):
         self.code = dic.get("code")
         self.message = dic.get("message")
         self.data = dic.get("data")
+
+    def __str__(self):
+        return f'Error: {self.code} {self.message} Response: {self.data}'
 
 
 class RequiredArgumentException(TeaException):
@@ -10,7 +16,7 @@ class RequiredArgumentException(TeaException):
         self.arg = arg
 
     def __str__(self):
-        return '"%s" is required.' % self.arg
+        return f'"{self.arg}" is required.'
 
 
 class RetryError(TeaException):
@@ -20,9 +26,14 @@ class RetryError(TeaException):
 
 
 class UnretryableException(TeaException):
-    def __init__(self, request, ex):
+    def __init__(
+            self,
+            request: TeaRequest,
+            ex: TeaException
+    ):
         self.last_request = request
         self.inner_exception = ex
-        self.message = "Retry failed: %s" % ex.message
+        self.message = f"Retry failed: {ex.message}"
 
-
+    def __str__(self):
+        return str(self.last_request)
