@@ -1,3 +1,10 @@
+### 2020-12-07 Version 0.2.0
+* Drop support for python3.4.
+* Drop support for python3.5.
+* Added support for python3.9.
+* Improve TeaException error message.
+* Support async do action.
+
 ### 2020-10-30 Version 0.1.5
 
 * Add to_map & from_map methods.
