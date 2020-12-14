@@ -21,6 +21,16 @@ class TestTeaException(TestCase):
             self.assertIsNotNone(e.last_request)
             self.assertEqual("Retry failed: test exception", e.message)
 
+        e = TeaException({
+            'code': 'error code',
+            'message': 'error message',
+            'data': 'data',
+        })
+        try:
+            raise UnretryableException(request, e)
+        except UnretryableException as e:
+            self.assertEqual('Error: error code error message Response: data', str(e))
+
     def test_tea_exception(self):
         dic = {"code": "200", "message": "message", "data": {"test": "test"}}
         try:

@@ -36,4 +36,4 @@ class UnretryableException(TeaException):
         self.message = f"Retry failed: {ex.message}"
 
     def __str__(self):
-        return str(self.last_request)
+        return str(self.inner_exception)
