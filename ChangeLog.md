@@ -1,3 +1,6 @@
+### 2020-12-14 Version 0.2.1
+* Fix bug that the error message is not printed when throw UnretryableException.
+
 ### 2020-12-07 Version 0.2.0
 * Drop support for python3.4.
 * Drop support for python3.5.
