@@ -12,6 +12,7 @@ from Tea.exceptions import TeaException, RequiredArgumentException
 from Tea.model import TeaModel
 from Tea.request import TeaRequest
 from Tea.response import TeaResponse
+from Tea.stream import BaseStream
 
 from typing import Dict, Any, Optional
 
@@ -117,15 +118,21 @@ class TeaCore:
         async with aiohttp.ClientSession(
             connector=connector
         ) as s:
+            body = b''
+            if isinstance(request.body, BaseStream):
+                for content in request.body:
+                    body += content
+            else:
+                body = request.body
             async with s.request(request.method, url,
-                                 data=request.body,
+                                 data=body,
                                  headers=request.headers,
                                  verify_ssl=verify,
                                  proxy=proxy,
                                  timeout=timeout) as response:
                 tea_resp = TeaResponse()
                 tea_resp.body = await response.read()
-                tea_resp.headers = response.headers
+                tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
                 tea_resp.status_code = response.status
                 tea_resp.status_message = response.reason
                 tea_resp.response = response
