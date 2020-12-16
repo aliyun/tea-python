@@ -10,6 +10,45 @@ from Tea.model import TeaModel
 from Tea.core import TeaCore
 from Tea.request import TeaRequest
 from Tea.exceptions import TeaException
+from Tea.stream import BaseStream
+
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+
+class Request(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        body = self.rfile.read(int(self.headers['content-length']))
+        self.wfile.write(b'{"result": "%s"}' % body)
+
+
+def run_server():
+    server = HTTPServer(('localhost', 8888), Request)
+    server.serve_forever()
+
+
+class TeaStream(BaseStream):
+    def __init__(self):
+        super().__init__()
+        self.content = b'tea test'
+
+    def read(self, size=1024):
+        content = self.content
+        self.content = b''
+        return content
+
+    def __len__(self):
+        return len(b'tea test')
+
+    def __next__(self):
+        content = self.read()
+        if content:
+            return content
+        else:
+            raise StopIteration
 
 
 class BaseUserResponse(TeaModel):
@@ -84,7 +123,13 @@ class ListUserResponse(TeaModel):
          }
 
 
-class Testcore(unittest.TestCase):
+class TestCore(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        server = threading.Thread(target=run_server)
+        server.setDaemon(True)
+        server.start()
+
     def test_compose_url(self):
         request = TeaRequest()
         try:
@@ -296,3 +341,15 @@ class Testcore(unittest.TestCase):
         model1 = TeaCore.from_map(model, m)
         self.assertEqual('138', model1.phone)
         self.assertEqual('test', model1.domainId)
+
+    def test_async_stream_upload(self):
+        request = TeaRequest()
+        request.method = 'POST'
+        request.protocol = 'http'
+        request.headers['host'] = "127.0.0.1:8888"
+        loop = asyncio.get_event_loop()
+        task = asyncio.ensure_future(TeaCore.async_do_action(request))
+        f = TeaStream()
+        request.body = f
+        loop.run_until_complete(task)
+        self.assertEqual(b'{"result": "tea test"}', task.result().body)
