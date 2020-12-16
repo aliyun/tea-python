@@ -1,3 +1,6 @@
+### 2020-12-16 Version 0.2.2
+* async_do_action method supports parsing stream.
+
 ### 2020-12-14 Version 0.2.1
 * Fix bug that the error message is not printed when throw UnretryableException.
 
