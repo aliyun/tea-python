@@ -1,3 +1,6 @@
+### 2020-01-08 Version 0.2.3
+* Aiohttp included in the Tea module.
+
 ### 2020-12-16 Version 0.2.2
 * async_do_action method supports parsing stream.
 
