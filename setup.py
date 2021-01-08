@@ -26,8 +26,7 @@ Created on 3/24/2020
 
 
 install_requires = [
-    'requests>=2.21.0, <3.0.0',
-    'aiohttp>=3.7.0, <4.0.0'
+    'requests>=2.21.0, <3.0.0'
 ]
 
 PACKAGE = "Tea"
@@ -35,7 +34,6 @@ DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
 AUTHOR_EMAIL = "alibaba-cloud-sdk-dev-team@list.alibaba-inc.com"
 URL = "https://github.com/aliyun/tea-python/tree/master/python"
-TOPDIR = os.path.dirname(__file__) or "."
 VERSION = __import__(PACKAGE).__version__
 
 with open("README.md", encoding="utf-8") as fp:
