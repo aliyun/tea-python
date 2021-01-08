@@ -1,13 +1,13 @@
 import logging
 import os
 import time
-import aiohttp
 import ssl
 import certifi
 from urllib.parse import urlencode, urlparse
 
 from requests import Request, Session, status_codes
 
+from Tea.vendored import aiohttp
 from Tea.exceptions import TeaException, RequiredArgumentException
 from Tea.model import TeaModel
 from Tea.request import TeaRequest
@@ -111,6 +111,9 @@ class TeaCore:
             connector = aiohttp.TCPConnector(
                 ssl=ssl_context,
             )
+        else:
+            verify = False
+
         timeout = aiohttp.ClientTimeout(
             sock_read=read_timeout,
             sock_connect=connect_timeout
@@ -127,7 +130,7 @@ class TeaCore:
             async with s.request(request.method, url,
                                  data=body,
                                  headers=request.headers,
-                                 verify_ssl=verify,
+                                 ssl=verify,
                                  proxy=proxy,
                                  timeout=timeout) as response:
                 tea_resp = TeaResponse()
