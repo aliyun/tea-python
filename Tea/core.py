@@ -25,6 +25,30 @@ ch = logging.StreamHandler()
 logger.addHandler(ch)
 
 
+def to_str(val):
+    if val is None:
+        return val
+
+    if isinstance(val, bytes):
+        return str(val, encoding='utf-8')
+    else:
+        return str(val)
+
+
+def prepare_headers(headers):
+    canon_keys = []
+    tmp_headers = {}
+    for k, v in headers.items():
+        if v is not None:
+            if k.lower() not in canon_keys:
+                canon_keys.append(k.lower())
+                tmp_headers[k.lower()] = [to_str(v).strip()]
+            else:
+                tmp_headers[k.lower()].append(to_str(v).strip())
+    canon_keys.sort()
+    return {key: ','.join(sorted(tmp_headers[key])) for key in canon_keys}
+
+
 class TeaCore:
     @staticmethod
     def _prepare_http_debug(request, symbol):
@@ -161,7 +185,7 @@ class TeaCore:
         timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
         with Session() as s:
             req = Request(method=request.method, url=url,
-                          data=request.body, headers=request.headers)
+                          data=request.body, headers=prepare_headers(request.headers))
             prepped = s.prepare_request(req)
 
             proxies = {}

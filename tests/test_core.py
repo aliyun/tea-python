@@ -7,7 +7,7 @@ from requests.exceptions import ProxyError
 from Tea.vendored.aiohttp.client_exceptions import ClientProxyConnectionError
 
 from Tea.model import TeaModel
-from Tea.core import TeaCore
+from Tea.core import TeaCore, prepare_headers
 from Tea.request import TeaRequest
 from Tea.exceptions import TeaException
 from Tea.stream import BaseStream
@@ -129,6 +129,13 @@ class TestCore(unittest.TestCase):
         server = threading.Thread(target=run_server)
         server.setDaemon(True)
         server.start()
+
+    def test_prepare_headers(self):
+        headers = {
+            'test': '1',
+            'Test': '2',
+        }
+        self.assertEqual({'test': '1,2'}, prepare_headers(headers))
 
     def test_compose_url(self):
         request = TeaRequest()
