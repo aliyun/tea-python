@@ -258,10 +258,15 @@ class TestCore(unittest.TestCase):
         self.assertFalse(TeaCore.allow_retry(None, 0))
         dic = {}
         self.assertFalse(TeaCore.allow_retry(dic, 0))
+        dic["retryable"] = True
         dic["maxAttempts"] = 3
         self.assertTrue(TeaCore.allow_retry(dic, 0))
         self.assertFalse(TeaCore.allow_retry(dic, 4))
         dic["maxAttempts"] = None
+        self.assertFalse(TeaCore.allow_retry(dic, 1))
+        dic["retryable"] = False
+        dic["maxAttempts"] = 3
+        self.assertTrue(TeaCore.allow_retry(dic, 0))
         self.assertFalse(TeaCore.allow_retry(dic, 1))
 
     def test_get_backoff_time(self):
