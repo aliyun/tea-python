@@ -206,7 +206,8 @@ class TeaCore:
 
     @staticmethod
     def allow_retry(dic, retry_times, now=None) -> bool:
-        if dic is None or not dic.__contains__("maxAttempts"):
+        if dic is None or not dic.__contains__("maxAttempts") or \
+                dic.get('retryable') is not True and retry_times >= 1:
             return False
         else:
             retry = 0 if dic.get("maxAttempts") is None else int(
