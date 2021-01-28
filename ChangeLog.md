@@ -1,3 +1,6 @@
+### 2020-01-28 Version 0.2.4
+* Retry is not allowed by default.
+
 ### 2020-01-08 Version 0.2.3
 * Aiohttp included in the Tea module.
 
