@@ -1,6 +1,7 @@
 from unittest import TestCase
 from Tea.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
 from Tea.request import TeaRequest
+import sys
 
 
 class TestTeaException(TestCase):
@@ -12,14 +13,16 @@ class TestTeaException(TestCase):
 
     def test_unretryable_exception(self):
         request = TeaRequest()
-        ex = Exception()
-        ex.message = "test exception"
+        ex = Exception("test exception")
         try:
             raise UnretryableException(request, ex)
         except UnretryableException as e:
             self.assertIsNotNone(e)
             self.assertIsNotNone(e.last_request)
-            self.assertEqual("Retry failed: test exception", e.message)
+            if sys.version_info[0:2] == (3, 6):
+                self.assertEqual("Exception('test exception',)", e.message)
+            else:
+                self.assertEqual("Exception('test exception')", e.message)
 
         e = TeaException({
             'code': 'error code',
@@ -30,6 +33,9 @@ class TestTeaException(TestCase):
             raise UnretryableException(request, e)
         except UnretryableException as e:
             self.assertEqual('Error: error code error message Response: data', str(e))
+            self.assertEqual('error code', e.code)
+            self.assertEqual('error message', e.message)
+            self.assertEqual('data', e.data)
 
     def test_tea_exception(self):
         dic = {"code": "200", "message": "message", "data": {"test": "test"}}
