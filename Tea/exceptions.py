@@ -33,7 +33,16 @@ class UnretryableException(TeaException):
     ):
         self.last_request = request
         self.inner_exception = ex
-        self.message = f"Retry failed: {ex.message}"
+        if isinstance(ex, TeaException):
+            super().__init__({
+                'code': ex.code,
+                'message': ex.message,
+                'data': ex.data
+            })
+        else:
+            super().__init__({
+                'message': repr(ex),
+            })
 
     def __str__(self):
         return str(self.inner_exception)
