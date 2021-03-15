@@ -5,7 +5,7 @@ import ssl
 import certifi
 from urllib.parse import urlencode, urlparse
 
-from requests import Request, Session, status_codes
+from requests import status_codes, adapters, PreparedRequest
 
 from Tea.vendored import aiohttp
 from Tea.exceptions import TeaException, RequiredArgumentException
@@ -18,6 +18,8 @@ from typing import Dict, Any, Optional
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
+DEFAULT_POOL_SIZE = 10
+
 
 logger = logging.getLogger('alibabacloud-tea')
 logger.setLevel(logging.DEBUG)
@@ -26,6 +28,16 @@ logger.addHandler(ch)
 
 
 class TeaCore:
+    http_adapter = adapters.HTTPAdapter(DEFAULT_POOL_SIZE, DEFAULT_POOL_SIZE)
+    https_adapter = adapters.HTTPAdapter(DEFAULT_POOL_SIZE, DEFAULT_POOL_SIZE)
+
+    @staticmethod
+    def get_adapter(prefix):
+        if prefix.upper() == 'HTTP':
+            return TeaCore.http_adapter
+        else:
+            return TeaCore.https_adapter
+
     @staticmethod
     def _prepare_http_debug(request, symbol):
         base = ''
@@ -159,46 +171,51 @@ class TeaCore:
         read_timeout = read_timeout if read_timeout else DEFAULT_READ_TIMEOUT
 
         timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
-        with Session() as s:
-            req = Request(method=request.method, url=url,
-                          data=request.body, headers=request.headers)
-            prepped = s.prepare_request(req)
 
-            proxies = {}
-            http_proxy = runtime_option.get('httpProxy')
-            https_proxy = runtime_option.get('httpsProxy')
-            no_proxy = runtime_option.get('noProxy')
+        p = PreparedRequest()
+        p.prepare(
+            method=request.method.upper(),
+            url=url,
+            data=request.body,
+            headers=request.headers,
+        )
 
-            if not http_proxy:
-                http_proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
-            if not https_proxy:
-                https_proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
+        proxies = {}
+        http_proxy = runtime_option.get('httpProxy')
+        https_proxy = runtime_option.get('httpsProxy')
+        no_proxy = runtime_option.get('noProxy')
 
-            if http_proxy:
-                proxies['http'] = http_proxy
-            if https_proxy:
-                proxies['https'] = https_proxy
-            if no_proxy:
-                proxies['no_proxy'] = no_proxy
+        if not http_proxy:
+            http_proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
+        if not https_proxy:
+            https_proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
-            resp = s.send(
-                prepped,
-                proxies=proxies,
-                timeout=timeout,
-                verify=verify,
-            )
+        if http_proxy:
+            proxies['http'] = http_proxy
+        if https_proxy:
+            proxies['https'] = https_proxy
+        if no_proxy:
+            proxies['no_proxy'] = no_proxy
 
-            debug = runtime_option.get('debug') or os.getenv('DEBUG')
-            if debug and debug.lower() == 'sdk':
-                TeaCore._do_http_debug(req, resp)
+        adapter = TeaCore.get_adapter(request.protocol)
+        resp = adapter.send(
+            p,
+            proxies=proxies,
+            timeout=timeout,
+            verify=verify,
+        )
 
-            response = TeaResponse()
-            response.status_message = resp.reason
-            response.status_code = resp.status_code
-            response.headers = {k.lower(): v for k, v in resp.headers.items()}
-            response.body = resp.content
-            response.response = resp
-            return response
+        debug = runtime_option.get('debug') or os.getenv('DEBUG')
+        if debug and debug.lower() == 'sdk':
+            TeaCore._do_http_debug(p, resp)
+
+        response = TeaResponse()
+        response.status_message = resp.reason
+        response.status_code = resp.status_code
+        response.headers = {k.lower(): v for k, v in resp.headers.items()}
+        response.body = resp.content
+        response.response = resp
+        return response
 
     @staticmethod
     def get_response_body(resp) -> str:
