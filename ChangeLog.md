@@ -1,3 +1,7 @@
+### 2020-03-15 Version 0.2.5
+* The `do_action` method uses a connection pool.
+* Improve UnretryableException.
+
 ### 2020-01-28 Version 0.2.4
 * Retry is not allowed by default.
 
