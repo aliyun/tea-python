@@ -66,8 +66,13 @@ class BaseUserResponse(TeaModel):
         self.updatedAt = None
         self.userId = None
         self.userName = None
+        self.array = None
 
     def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
         return {
             'avatar': self.avatar,
             'createdAt': self.createdAt,
@@ -99,6 +104,10 @@ class BaseUserResponse(TeaModel):
         self.updatedAt = dic.get('updatedAt')
         self.userId = dic.get('userId')
         self.userName = dic.get('userName')
+        self.array = []
+        if dic.get('array') is not None:
+            for i in dic.get('array'):
+                self.array.append(i)
         return self
 
 
@@ -335,6 +344,11 @@ class TestCore(unittest.TestCase):
         m = TeaCore.to_map(None)
         self.assertEqual({}, m)
 
+        model = BaseUserResponse()
+        model._map = {'phone': '139xxx'}
+        m = TeaCore.to_map(model)
+        self.assertEqual({'phone': '139xxx'}, m)
+
     def test_from_map(self):
         model = BaseUserResponse()
         model.phone = '139xxx'
@@ -346,6 +360,15 @@ class TestCore(unittest.TestCase):
         model1 = TeaCore.from_map(model, m)
         self.assertEqual('138', model1.phone)
         self.assertEqual('test', model1.domainId)
+
+        m = {
+            'phone': '138',
+            'domainId': 'test',
+            'array': 123
+        }
+        model2 = TeaCore.from_map(model, m)
+        self.assertEqual([], model2.array)
+        self.assertEqual(123, model2._map['array'])
 
     def test_async_stream_upload(self):
         request = TeaRequest()
