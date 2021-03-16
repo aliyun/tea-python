@@ -283,6 +283,10 @@ class TeaCore:
             dic: Dict[str, Any]
     ) -> TeaModel:
         if isinstance(model, TeaModel):
-            return model.from_map(dic)
+            try:
+                return model.from_map(dic)
+            except Exception:
+                model._map = dic
+                return model
         else:
             return model

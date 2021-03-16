@@ -3,11 +3,13 @@ from .exceptions import RequiredArgumentException
 
 
 class TeaModel:
+    _map = None
+
     def validate(self):
         pass
 
     def to_map(self):
-        pass
+        return self._map
 
     def from_map(self, map=None):
         pass
