@@ -1,3 +1,6 @@
+### 2020-03-17 Version 0.2.6
+* Improve TeaModel to avoid serialization exception.
+
 ### 2020-03-15 Version 0.2.5
 * The `do_action` method uses a connection pool.
 * Improve UnretryableException.
