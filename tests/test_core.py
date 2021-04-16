@@ -184,12 +184,12 @@ class TestCore(unittest.TestCase):
 
     def test_do_action(self):
         request = TeaRequest()
-        request.headers['host'] = "www.aliyun.com"
+        request.headers['host'] = "www.alibabacloud.com"
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
         option = {
-            "readTimeout": 0,
-            "connectTimeout": 0,
+            "readTimeout": 20000,
+            "connectTimeout": 10000,
             "httpProxy": None,
             "httpsProxy": None,
             "noProxy": None,
@@ -220,13 +220,13 @@ class TestCore(unittest.TestCase):
 
     def test_async_do_action(self):
         request = TeaRequest()
-        request.headers['host'] = "www.aliyun.com"
+        request.headers['host'] = "www.alibabacloud.com"
         request.protocol = 'https'
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
         option = {
-            "readTimeout": 0,
-            "connectTimeout": 0,
+            "readTimeout": 20000,
+            "connectTimeout": 10000,
             "httpProxy": None,
             "httpsProxy": None,
             "noProxy": None,
