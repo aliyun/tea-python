@@ -1,10 +1,3 @@
-from _io import (
-    TextIOWrapper,
-    BufferedReader, BytesIO,
-    BufferedWriter
-)
-
-
 class BaseStream:
     def __init__(self, size=1024):
         self.size = size
@@ -22,6 +15,24 @@ class BaseStream:
         return self
 
 
-STREAM_CLASS = (TextIOWrapper, BufferedReader, BaseStream, BytesIO)
-READABLE = (BaseStream, BufferedReader, BytesIO)
-WRITABLE = (BufferedWriter,)
+class _ReadableMc(type):
+    def __instancecheck__(self, instance):
+        if hasattr(instance, 'read') and hasattr(instance, '__iter__'):
+            return True
+
+
+class READABLE(metaclass=_ReadableMc):
+    pass
+
+
+class _WriteableMc(type):
+    def __instancecheck__(self, instance):
+        if hasattr(instance, 'write'):
+            return True
+
+
+class WRITABLE(metaclass=_WriteableMc):
+    pass
+
+
+STREAM_CLASS = (READABLE, WRITABLE)
