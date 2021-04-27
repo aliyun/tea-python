@@ -9,7 +9,7 @@ from Tea.vendored.aiohttp.client_exceptions import ClientProxyConnectionError
 from Tea.model import TeaModel
 from Tea.core import TeaCore
 from Tea.request import TeaRequest
-from Tea.exceptions import TeaException
+from Tea.exceptions import TeaException, RetryError
 from Tea.stream import BaseStream
 
 import threading
@@ -216,7 +216,7 @@ class TestCore(unittest.TestCase):
             TeaCore.do_action(request, option)
             assert False
         except Exception as e:
-            self.assertIsInstance(e, ProxyError)
+            self.assertIsInstance(e, RetryError)
 
     def test_async_do_action(self):
         request = TeaRequest()
@@ -256,7 +256,7 @@ class TestCore(unittest.TestCase):
             loop.run_until_complete(TeaCore.async_do_action(request, option))
             assert False
         except Exception as e:
-            self.assertIsInstance(e, ClientProxyConnectionError)
+            self.assertIsInstance(e, RetryError)
 
     def test_get_response_body(self):
         moc_resp = mock.Mock()
@@ -306,6 +306,8 @@ class TestCore(unittest.TestCase):
     def test_is_retryable(self):
         self.assertFalse(TeaCore.is_retryable("test"))
         ex = TeaException({})
+        self.assertFalse(TeaCore.is_retryable(ex))
+        ex = RetryError('error')
         self.assertTrue(TeaCore.is_retryable(ex))
 
     def test_bytes_readable(self):
