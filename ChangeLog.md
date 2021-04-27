@@ -1,14 +1,18 @@
-### 2020-03-17 Version 0.2.6
+### 2021-04-27 Version 0.2.7
+* Throw TeaException will not retry.
+* Improve instance check of stream.
+
+### 2021-03-17 Version 0.2.6
 * Improve TeaModel to avoid serialization exception.
 
-### 2020-03-15 Version 0.2.5
+### 2021-03-15 Version 0.2.5
 * The `do_action` method uses a connection pool.
 * Improve UnretryableException.
 
-### 2020-01-28 Version 0.2.4
+### 2021-01-28 Version 0.2.4
 * Retry is not allowed by default.
 
-### 2020-01-08 Version 0.2.3
+### 2021-01-08 Version 0.2.3
 * Aiohttp included in the Tea module.
 
 ### 2020-12-16 Version 0.2.2
