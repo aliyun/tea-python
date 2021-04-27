@@ -11,7 +11,11 @@ class TeaException(Exception):
         return f'Error: {self.code} {self.message} Response: {self.data}'
 
 
-class RequiredArgumentException(TeaException):
+class ValidateException(Exception):
+    pass
+
+
+class RequiredArgumentException(ValidateException):
     def __init__(self, arg):
         self.arg = arg
 
@@ -19,7 +23,7 @@ class RequiredArgumentException(TeaException):
         return f'"{self.arg}" is required.'
 
 
-class RetryError(TeaException):
+class RetryError(Exception):
     def __init__(self, message):
         self.message = message
         self.data = None
@@ -29,7 +33,7 @@ class UnretryableException(TeaException):
     def __init__(
             self,
             request: TeaRequest,
-            ex: TeaException
+            ex: Exception
     ):
         self.last_request = request
         self.inner_exception = ex

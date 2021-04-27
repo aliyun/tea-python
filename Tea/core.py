@@ -8,7 +8,7 @@ from urllib.parse import urlencode, urlparse
 from requests import status_codes, adapters, PreparedRequest
 
 from Tea.vendored import aiohttp
-from Tea.exceptions import TeaException, RequiredArgumentException
+from Tea.exceptions import TeaException, RequiredArgumentException, RetryError
 from Tea.model import TeaModel
 from Tea.request import TeaRequest
 from Tea.response import TeaResponse
@@ -139,18 +139,21 @@ class TeaCore:
                     body += content
             else:
                 body = request.body
-            async with s.request(request.method, url,
-                                 data=body,
-                                 headers=request.headers,
-                                 ssl=verify,
-                                 proxy=proxy,
-                                 timeout=timeout) as response:
-                tea_resp = TeaResponse()
-                tea_resp.body = await response.read()
-                tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
-                tea_resp.status_code = response.status
-                tea_resp.status_message = response.reason
-                tea_resp.response = response
+            try:
+                async with s.request(request.method, url,
+                                     data=body,
+                                     headers=request.headers,
+                                     ssl=verify,
+                                     proxy=proxy,
+                                     timeout=timeout) as response:
+                    tea_resp = TeaResponse()
+                    tea_resp.body = await response.read()
+                    tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
+                    tea_resp.status_code = response.status
+                    tea_resp.status_message = response.reason
+                    tea_resp.response = response
+            except IOError as e:
+                raise RetryError(str(e))
         return tea_resp
 
     @staticmethod
@@ -198,12 +201,15 @@ class TeaCore:
             proxies['no_proxy'] = no_proxy
 
         adapter = TeaCore.get_adapter(request.protocol)
-        resp = adapter.send(
-            p,
-            proxies=proxies,
-            timeout=timeout,
-            verify=verify,
-        )
+        try:
+            resp = adapter.send(
+                p,
+                proxies=proxies,
+                timeout=timeout,
+                verify=verify,
+            )
+        except IOError as e:
+            raise RetryError(str(e))
 
         debug = runtime_option.get('debug') or os.getenv('DEBUG')
         if debug and debug.lower() == 'sdk':
@@ -254,7 +260,7 @@ class TeaCore:
 
     @staticmethod
     def is_retryable(ex) -> bool:
-        return isinstance(ex, TeaException)
+        return isinstance(ex, RetryError)
 
     @staticmethod
     def bytes_readable(body):
