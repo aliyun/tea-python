@@ -2,6 +2,11 @@
 
 ![](https://aliyunsdk-pages.alicdn.com/icons/AlibabaCloud.svg)
 
+[![PyPI version](https://badge.fury.io/py/alibabacloud-tea.svg)](https://badge.fury.io/py/alibabacloud-tea)
+[![Supported Versions](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)](https://pypi.org/project/alibabacloud-tea)
+[![Actions Status](https://github.com/aliyun/tea-python/workflows/Python%20Test/badge.svg)](https://github.com/aliyun/tea-python/actions)
+[![codecov](https://codecov.io/gh/aliyun/tea-python/branch/master/graph/badge.svg)](https://codecov.io/gh/aliyun/tea-python)
+
 ## Alibaba Cloud Tea for Python
 
 
