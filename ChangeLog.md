@@ -1,3 +1,7 @@
+### 2021-07-27 Version 0.2.8
+* Remove local modules & Fix some no-module errors.
+* Update some config.
+
 ### 2021-04-27 Version 0.2.7
 * Throw TeaException will not retry.
 * Improve instance check of stream.
