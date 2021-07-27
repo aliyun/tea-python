@@ -68,7 +68,7 @@ except ImportError:  # pragma: no cover
 try:
     import cchardet as chardet
 except ImportError:  # pragma: no cover
-    import chardet  # type: ignore
+    import Tea.vendored.aiohttp.chardet as chardet  # type: ignore
 
 
 __all__ = ("ClientRequest", "ClientResponse", "RequestInfo", "Fingerprint")

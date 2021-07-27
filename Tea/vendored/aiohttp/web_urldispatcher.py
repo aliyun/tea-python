@@ -33,8 +33,8 @@ from typing import (
     cast,
 )
 
-from typing_extensions import TypedDict
-from yarl import URL, __version__ as yarl_version  # type: ignore
+from .typing_extensions import TypedDict
+from .yarl import URL, __version__ as yarl_version  # type: ignore
 
 from . import hdrs
 from .abc import AbstractMatchInfo, AbstractRouter, AbstractView

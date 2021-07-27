@@ -14,11 +14,11 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Optional, Type, Union
 from unittest import mock
 
-from multidict import CIMultiDict, CIMultiDictProxy
-from yarl import URL
+from .multidict import CIMultiDict, CIMultiDictProxy
+from .yarl import URL
 
-import aiohttp
-from aiohttp.client import (
+import Tea.vendored.aiohttp as aiohttp;
+from Tea.vendored.aiohttp.client import (
     ClientResponse,
     _RequestContextManager,
     _WSRequestContextManager,

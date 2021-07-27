@@ -5,9 +5,9 @@ import hashlib
 import json
 from typing import Any, Iterable, Optional, Tuple
 
-import async_timeout
+import Tea.vendored.aiohttp.async_timeout as async_timeout
 import attr
-from multidict import CIMultiDict
+from .multidict import CIMultiDict
 
 from . import hdrs
 from .abc import AbstractStreamWriter

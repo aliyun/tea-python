@@ -18,9 +18,9 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import sys
 
-from chardet import __version__
-from chardet.compat import PY2
-from chardet.universaldetector import UniversalDetector
+from Tea.vendored.aiohttp.chardet.version import __version__
+from Tea.vendored.aiohttp.chardet.compat import PY2
+from Tea.vendored.aiohttp.chardet.universaldetector import UniversalDetector
 
 
 def description_of(lines, name='stdin'):

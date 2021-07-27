@@ -9,7 +9,7 @@ from http import HTTPStatus
 from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Tuple, Type, cast
 
-import yarl
+import Tea.vendored.aiohttp.yarl as yarl
 
 from .abc import AbstractAccessLogger, AbstractStreamWriter
 from .base_protocol import BaseProtocol

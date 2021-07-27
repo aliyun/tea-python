@@ -23,7 +23,7 @@ from typing import (
     cast,
 )
 
-from multidict import CIMultiDict, istr
+from .multidict import CIMultiDict, istr
 
 from . import hdrs, payload
 from .abc import AbstractStreamWriter

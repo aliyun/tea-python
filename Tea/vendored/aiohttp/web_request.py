@@ -25,8 +25,8 @@ from typing import (
 from urllib.parse import parse_qsl
 
 import attr
-from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
-from yarl import URL
+from .multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
+from .yarl import URL
 
 from . import hdrs
 from .abc import AbstractStreamWriter

@@ -4,7 +4,7 @@ import socket
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Set
 
-from yarl import URL
+from .yarl import URL
 
 from .web_app import Application
 from .web_server import Server
