@@ -3,6 +3,7 @@ English | [简体中文](README-CN.md)
 
 ## Alibaba Cloud Tea for Python
 
+[![PyPI version](https://badge.fury.io/py/alibabacloud-tea.svg)](https://badge.fury.io/py/alibabacloud-tea)
 [![Python Test](https://github.com/aliyun/tea-python/actions/workflows/testPython.yml/badge.svg)](https://github.com/aliyun/tea-python/actions/workflows/testPython.yml)
 
 ## Installation
