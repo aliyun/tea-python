@@ -1,13 +1,13 @@
 import logging
 import os
 import time
+import aiohttp
 import ssl
 import certifi
 from urllib.parse import urlencode, urlparse
 
 from requests import status_codes, adapters, PreparedRequest
 
-from Tea.vendored import aiohttp
 from Tea.exceptions import TeaException, RequiredArgumentException, RetryError
 from Tea.model import TeaModel
 from Tea.request import TeaRequest

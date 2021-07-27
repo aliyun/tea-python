@@ -10,6 +10,7 @@ env:
 install:
   - pip install coverage
   - pip install requests
+  - pip install aiohttp==3.7.4
 # command to run tests
 script:
   - coverage run --source=Tea -m pytest tests/test_*

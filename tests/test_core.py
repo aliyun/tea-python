@@ -2,9 +2,9 @@ import unittest
 import time
 import asyncio
 
+from aiohttp.client_exceptions import ClientProxyConnectionError
 from unittest import mock
 from requests.exceptions import ProxyError
-from Tea.vendored.aiohttp.client_exceptions import ClientProxyConnectionError
 
 from Tea.model import TeaModel
 from Tea.core import TeaCore
