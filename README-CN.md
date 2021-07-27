@@ -4,6 +4,7 @@
 
 ## Alibaba Cloud Tea for Python
 
+[![Python Test](https://github.com/aliyun/tea-python/actions/workflows/testPython.yml/badge.svg)](https://github.com/aliyun/tea-python/actions/workflows/testPython.yml)
 
 ## 安装
 
