@@ -1,3 +1,0 @@
-ignore:
-  - "Tea/vendored/*"
-  - "Tea/vendored/**/*"

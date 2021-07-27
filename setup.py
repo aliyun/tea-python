@@ -26,7 +26,8 @@ Created on 3/24/2020
 
 
 install_requires = [
-    'requests>=2.21.0, <3.0.0'
+    'requests>=2.21.0, <3.0.0',
+    'aiohttp>=3.7.0, <4.0.0'
 ]
 
 PACKAGE = "Tea"

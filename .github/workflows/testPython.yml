@@ -22,7 +22,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
-      run: pip install requests pytest coverage
+      run: pip install requests aiohttp==3.7.4 pytest coverage
     - name: Test with unittest
       run: |
         coverage run --source="./Tea" -m pytest tests/test_*
