@@ -34,7 +34,7 @@ PACKAGE = "Tea"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
 AUTHOR_EMAIL = "alibaba-cloud-sdk-dev-team@list.alibaba-inc.com"
-URL = "https://github.com/aliyun/tea-python/tree/master/python"
+URL = "https://github.com/aliyun/tea-python"
 VERSION = __import__(PACKAGE).__version__
 
 with open("README.md", encoding="utf-8") as fp:
