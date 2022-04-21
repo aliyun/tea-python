@@ -1,3 +1,6 @@
+### 2022-04-21 Version 0.2.9
+* Support certificates.
+
 ### 2021-07-27 Version 0.2.8
 * Remove local modules & Fix some no-module errors.
 * Update some config.
