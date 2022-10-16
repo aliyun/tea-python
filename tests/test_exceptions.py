@@ -34,7 +34,14 @@ class TestTeaException(TestCase):
             self.assertEqual('data', e.inner_exception.data)
 
     def test_tea_exception(self):
-        dic = {"code": "200", "message": "message", "data": {"test": "test"}}
+        dic = {"code": "200", "message": "message", "data": {"test": "test", "statusCode": 200},
+               "description": "description",
+               "accessDeniedDetail": {
+                   'AuthAction': 'ram:ListUsers',
+                   'AuthPrincipalType': 'SubUser',
+                   'PolicyType': 'ResourceGroupLevelIdentityBassdPolicy',
+                   'NoPermissionType': 'ImplicitDeny'
+               }}
         try:
             raise TeaException(dic)
         except TeaException as e:
@@ -43,6 +50,14 @@ class TestTeaException(TestCase):
             self.assertEqual("message", e.message)
             self.assertIsNotNone(e.data)
             self.assertEqual("test", e.data.get("test"))
+            self.assertEqual(200, e.statusCode)
+            self.assertEqual("description", e.description)
+            self.assertDictEqual({
+                'AuthAction': 'ram:ListUsers',
+                'AuthPrincipalType': 'SubUser',
+                'PolicyType': 'ResourceGroupLevelIdentityBassdPolicy',
+                'NoPermissionType': 'ImplicitDeny'
+            }, e.accessDeniedDetail)
 
     def test_RequiredArgumentException(self):
         param_name = 'name'
