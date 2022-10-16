@@ -6,6 +6,10 @@ class TeaException(Exception):
         self.code = dic.get("code")
         self.message = dic.get("message")
         self.data = dic.get("data")
+        self.description = dic.get("description")
+        self.accessDeniedDetail = dic.get("accessDeniedDetail")
+        if isinstance(dic.get("data"), dict) and dic.get("data").get("statusCode") is not None:
+            self.statusCode = dic.get("data").get("statusCode")
 
     def __str__(self):
         return f'Error: {self.code} {self.message} Response: {self.data}'
