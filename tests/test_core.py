@@ -264,9 +264,9 @@ class TestCore(unittest.TestCase):
         self.assertAlmostEqual("test", TeaCore.get_response_body(moc_resp))
 
     def test_allow_retry(self):
-        self.assertFalse(TeaCore.allow_retry(None, 0))
+        self.assertTrue(TeaCore.allow_retry(None, 0))
         dic = {}
-        self.assertFalse(TeaCore.allow_retry(dic, 0))
+        self.assertTrue(TeaCore.allow_retry(dic, 0))
         dic["retryable"] = True
         dic["maxAttempts"] = 3
         self.assertTrue(TeaCore.allow_retry(dic, 0))
