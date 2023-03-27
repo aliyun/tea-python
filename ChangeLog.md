@@ -1,3 +1,6 @@
+### 2023-03-27 Version 0.3.1
+* Fix: allow retry when retry_times equals 0.
+
 ### 2022-10-20 Version 0.3.0
 * Return more detail in error info.
 
