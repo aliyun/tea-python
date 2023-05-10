@@ -16,6 +16,7 @@
 """
 
 import os
+import ssl
 from setuptools import setup, find_packages
 
 """
@@ -24,11 +25,18 @@ Created on 3/24/2020
 @author: Alibaba Cloud
 """
 
-
-install_requires = [
-    'requests>=2.21.0, <3.0.0',
-    'aiohttp>=3.7.0, <4.0.0'
-]
+if ssl.OPENSSL_VERSION_INFO is not None and len(ssl.OPENSSL_VERSION_INFO) >= 3 and ssl.OPENSSL_VERSION_INFO[:3] >= (
+        1, 1, 1):
+    install_requires = [
+        'requests>=2.21.0, <3.0.0',
+        'aiohttp>=3.7.0, <4.0.0'
+    ]
+else:
+    install_requires = [
+        'requests>=2.21.0, <3.0.0',
+        'aiohttp>=3.7.0, <4.0.0',
+        'urllib3<2.0.0'
+    ]
 
 PACKAGE = "Tea"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
