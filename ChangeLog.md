@@ -1,3 +1,6 @@
+### 2023-05-11 Version 0.3.2
+* Fix: solve ImportError that urllib3 v2.0 only supports OpenSSL 1.1.1+.
+
 ### 2023-03-27 Version 0.3.1
 * Fix: allow retry when retry_times equals 0.
 
