@@ -20,7 +20,6 @@ DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
 DEFAULT_POOL_SIZE = 10
 
-
 logger = logging.getLogger('alibabacloud-tea')
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
@@ -137,6 +136,8 @@ class TeaCore:
             if isinstance(request.body, BaseStream):
                 for content in request.body:
                     body += content
+            elif isinstance(request.body, str):
+                body = request.body.encode('utf-8')
             else:
                 body = request.body
             try:
@@ -177,6 +178,9 @@ class TeaCore:
         read_timeout = read_timeout if read_timeout else DEFAULT_READ_TIMEOUT
 
         timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
+
+        if isinstance(request.body, str):
+            request.body = request.body.encode('utf-8')
 
         p = PreparedRequest()
         p.prepare(
