@@ -209,6 +209,24 @@ class TestCore(unittest.TestCase):
         self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
+        request.headers['host'] = "127.0.0.1:8888"
+        request.method = "POST"
+        request.protocol = "http"
+        request.body = "{'test': [{'id': 'id', 'name': '中文'}]}"
+        resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
+        self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}', bytes.decode(resp.body))
+
+        request.body = "{'test': [{'id': 'id', 'name': '\u4e2d\u6587'}]}"
+        resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
+        self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}', bytes.decode(resp.body))
+
+        request.body = b"{'test': [{'id': 'id', 'name': '\xe4\xb8\xad\xe6\x96\x87\'}]}"
+        resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
+        self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}', bytes.decode(resp.body))
+
         option['httpProxy'] = '127.0.0.1'
         option['httpsProxy'] = '127.0.0.1'
         option['noProxy'] = '127.0.0.1'
@@ -249,6 +267,39 @@ class TestCore(unittest.TestCase):
         response = task.result()
         self.assertTrue(response.headers.get('server'))
         self.assertIsNotNone(bytes.decode(response.body))
+
+        request.headers['host'] = "127.0.0.1:8888"
+        request.method = "POST"
+        request.protocol = "http"
+        request.body = "{'test': [{'id': 'id', 'name': '中文'}]}"
+        task = asyncio.ensure_future(
+            TeaCore.async_do_action(request, option)
+        )
+        loop.run_until_complete(task)
+        response = task.result()
+        self.assertTrue(response.headers.get('server'))
+        self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}',
+                         bytes.decode(response.body))
+
+        request.body = "{'test': [{'id': 'id', 'name': '\u4e2d\u6587'}]}"
+        task = asyncio.ensure_future(
+            TeaCore.async_do_action(request, option)
+        )
+        loop.run_until_complete(task)
+        response = task.result()
+        self.assertTrue(response.headers.get('server'))
+        self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}',
+                         bytes.decode(response.body))
+
+        request.body = b"{'test': [{'id': 'id', 'name': '\xe4\xb8\xad\xe6\x96\x87\'}]}"
+        task = asyncio.ensure_future(
+            TeaCore.async_do_action(request, option)
+        )
+        loop.run_until_complete(task)
+        response = task.result()
+        self.assertTrue(response.headers.get('server'))
+        self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}',
+                         bytes.decode(response.body))
 
         request.protocol = 'http'
         option['httpProxy'] = 'http://127.0.0.1'
