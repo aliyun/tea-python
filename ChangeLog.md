@@ -1,3 +1,6 @@
+### 2023-07-13 Version 0.3.3
+* Feat: support unicode characters in request body.
+
 ### 2023-05-11 Version 0.3.2
 * Fix: solve ImportError that urllib3 v2.0 only supports OpenSSL 1.1.1+.
 
