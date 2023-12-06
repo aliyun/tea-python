@@ -22,7 +22,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
-      run: python setup.py install && pip install pytest coverage
+      run: python setup.py install && pip install pytest coverage==7.2.7
     - name: Test with unittest
       run: |
         coverage run --source="./Tea" -m pytest tests/test_*

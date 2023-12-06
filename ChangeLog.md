@@ -1,3 +1,6 @@
+### 2023-12-06 Version 0.3.4
+* Fix: strictly limited aiohttp version, in order to be compatible with python3.6 and python3.7.
+
 ### 2023-07-13 Version 0.3.3
 * Feat: support unicode characters in request body.
 
