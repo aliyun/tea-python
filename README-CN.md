@@ -6,6 +6,7 @@
 
 [![PyPI version](https://badge.fury.io/py/alibabacloud-tea.svg)](https://badge.fury.io/py/alibabacloud-tea)
 [![Python Test](https://github.com/aliyun/tea-python/actions/workflows/testPython.yml/badge.svg)](https://github.com/aliyun/tea-python/actions/workflows/testPython.yml)
+[![python](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)
 
 ## 安装
 

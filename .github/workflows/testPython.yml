@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, 3.11]
+        python-version: [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12" ]
+      fail-fast: false
 
     steps:
     - uses: actions/checkout@v2
@@ -22,7 +23,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
-      run: python setup.py install && pip install pytest coverage==7.2.7
+      run: python setup.py install && pip install pytest==6.2.5 coverage==5.5 importlib-metadata==1.7.0 zipp==2.2.1 typing-extensions==3.10.0.2
+      if: matrix.python-version == '3.7'
+    - name: Install dependencies
+      run: python -m pip install setuptools && python setup.py install && pip install pytest coverage
+      if: matrix.python-version != '3.7'
     - name: Test with unittest
       run: |
         coverage run --source="./Tea" -m pytest tests/test_*
