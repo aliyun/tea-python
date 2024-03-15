@@ -121,7 +121,7 @@ class TeaCore:
         connector = None
         ca_cert = certifi.where()
         if ca_cert and request.protocol.upper() == 'HTTPS':
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context.load_verify_locations(ca_cert)
             connector = aiohttp.TCPConnector(
                 ssl=ssl_context,
