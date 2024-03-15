@@ -113,6 +113,10 @@ class TeaCore:
             proxy = runtime_option.get('httpProxy')
             if not proxy:
                 proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
+        elif request.protocol.upper() == 'HTTPS':
+            proxy = runtime_option.get('httpsProxy')
+            if not proxy:
+                proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
         connector = None
         ca_cert = certifi.where()
