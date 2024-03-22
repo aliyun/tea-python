@@ -1,3 +1,7 @@
+### 2024-03-22 Version 0.3.6
+* Support HTTPS proxy for async mode.
+* Fix SSL purpose to SERVER_AUTH
+
 ### 2023-12-19 Version 0.3.5
 * Fix: compatible with python3.12.
 
