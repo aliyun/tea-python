@@ -1,6 +1,6 @@
 import unittest
 
-from Tea.request import TeaRequest
+from alibabacloud_tea_sse.request import TeaRequest
 
 
 class TestTeaRequest(unittest.TestCase):

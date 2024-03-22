@@ -40,7 +40,7 @@ if ssl.OPENSSL_VERSION_INFO is not None and len(ssl.OPENSSL_VERSION_INFO) >= 3 a
 else:
     install_requires.append('urllib3<2.0.0')
 
-PACKAGE = "Tea"
+PACKAGE = "alibabacloud_tea_sse"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
 AUTHOR_EMAIL = "alibaba-cloud-sdk-dev-team@list.alibaba-inc.com"
@@ -79,4 +79,4 @@ setup_args = {
     'python_requires': '>=3.6'
 }
 
-setup(name='alibabacloud-tea', **setup_args)
+setup(name='alibabacloud_tea_sse', **setup_args)

@@ -6,11 +6,11 @@ from aiohttp.client_exceptions import ClientProxyConnectionError
 from unittest import mock
 from requests.exceptions import ProxyError
 
-from Tea.model import TeaModel
-from Tea.core import TeaCore
-from Tea.request import TeaRequest
-from Tea.exceptions import TeaException, RetryError
-from Tea.stream import BaseStream
+from alibabacloud_tea_sse.model import TeaModel
+from alibabacloud_tea_sse.core import TeaCore
+from alibabacloud_tea_sse.request import TeaRequest
+from alibabacloud_tea_sse.exceptions import TeaException, RetryError
+from alibabacloud_tea_sse.stream import BaseStream
 
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler

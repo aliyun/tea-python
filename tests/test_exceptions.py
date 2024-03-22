@@ -1,6 +1,6 @@
 from unittest import TestCase
-from Tea.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
-from Tea.request import TeaRequest
+from alibabacloud_tea_sse.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
+from alibabacloud_tea_sse.request import TeaRequest
 
 
 class TestTeaException(TestCase):

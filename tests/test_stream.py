@@ -2,7 +2,7 @@ import unittest
 import os
 import io
 
-from Tea.stream import BaseStream, READABLE, WRITABLE, STREAM_CLASS
+from alibabacloud_tea_sse.stream import BaseStream, READABLE, WRITABLE, STREAM_CLASS
 
 root_path = os.path.dirname(__file__)
 

@@ -1,7 +1,7 @@
 import unittest
 import re
 
-from Tea.model import TeaModel
+from alibabacloud_tea_sse.model import TeaModel
 
 
 class TestTeaModel(unittest.TestCase):
@@ -114,4 +114,4 @@ class TestTeaModel(unittest.TestCase):
         tm = str(TeaModel())
         self.assertTrue(model.startswith('{\''))
         self.assertTrue(model.endswith('}'))
-        self.assertTrue(tm.startswith('<Tea.model.TeaModel object'))
+        self.assertTrue(tm.startswith('<alibabacloud_tea_sse.model.TeaModel object'))
