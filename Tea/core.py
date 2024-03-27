@@ -100,11 +100,10 @@ class TeaCore:
 
         url = TeaCore.compose_url(request)
         verify = not runtime_option.get('ignoreSSL', False)
-        connect_timeout = runtime_option.get('connectTimeout')
-        connect_timeout = connect_timeout if connect_timeout else DEFAULT_CONNECT_TIMEOUT
 
-        read_timeout = runtime_option.get('readTimeout')
-        read_timeout = read_timeout if read_timeout else DEFAULT_READ_TIMEOUT
+        timeout = runtime_option.get('timeout')
+        connect_timeout = runtime_option.get('connectTimeout', timeout or DEFAULT_CONNECT_TIMEOUT)
+        read_timeout = runtime_option.get('readTimeout',timeout or DEFAULT_READ_TIMEOUT)
 
         connect_timeout, read_timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
 
@@ -175,11 +174,9 @@ class TeaCore:
             verify = runtime_option.get('ca', True) if runtime_option.get('ca', True) is not None else True
         cert = runtime_option.get('cert', None)
 
-        connect_timeout = runtime_option.get('connectTimeout')
-        connect_timeout = connect_timeout if connect_timeout else DEFAULT_CONNECT_TIMEOUT
-
-        read_timeout = runtime_option.get('readTimeout')
-        read_timeout = read_timeout if read_timeout else DEFAULT_READ_TIMEOUT
+        timeout = runtime_option.get('timeout')
+        connect_timeout = runtime_option.get('connectTimeout', timeout or DEFAULT_CONNECT_TIMEOUT)
+        read_timeout = runtime_option.get('readTimeout',timeout or DEFAULT_READ_TIMEOUT)
 
         timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
 
