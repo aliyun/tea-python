@@ -126,10 +126,10 @@ class ListUserResponse(TeaModel):
 
     @classmethod
     def requireds(cls):
-         return {
-             "items": False,
-             "nextMarker": False,
-         }
+        return {
+            "items": False,
+            "nextMarker": False,
+        }
 
 
 class TestCore(unittest.TestCase):
@@ -350,6 +350,17 @@ class TestCore(unittest.TestCase):
     def test_sleep(self):
         ts_before = int(round(time.time() * 1000))
         TeaCore.sleep(1)
+        ts_after = int(round(time.time() * 1000))
+        ts_subtract = ts_after - ts_before
+        self.assertTrue(1000 <= ts_subtract < 1100)
+
+    def test_sleep_async(self):
+        ts_before = int(round(time.time() * 1000))
+        loop = asyncio.get_event_loop()
+        task = asyncio.ensure_future(
+            TeaCore.sleep_async(1)
+        )
+        loop.run_until_complete(task)
         ts_after = int(round(time.time() * 1000))
         ts_subtract = ts_after - ts_before
         self.assertTrue(1000 <= ts_subtract < 1100)
