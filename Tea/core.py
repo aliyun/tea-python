@@ -4,6 +4,7 @@ import time
 import aiohttp
 import ssl
 import certifi
+import asyncio
 from urllib.parse import urlencode, urlparse
 
 from requests import status_codes, adapters, PreparedRequest
@@ -93,8 +94,8 @@ class TeaCore:
 
     @staticmethod
     async def async_do_action(
-        request: TeaRequest,
-        runtime_option=None
+            request: TeaRequest,
+            runtime_option=None
     ) -> TeaResponse:
         runtime_option = runtime_option or {}
 
@@ -133,7 +134,7 @@ class TeaCore:
             sock_connect=connect_timeout
         )
         async with aiohttp.ClientSession(
-            connector=connector
+                connector=connector
         ) as s:
             body = b''
             if isinstance(request.body, BaseStream):
@@ -162,8 +163,8 @@ class TeaCore:
 
     @staticmethod
     def do_action(
-        request: TeaRequest,
-        runtime_option=None
+            request: TeaRequest,
+            runtime_option=None
     ) -> TeaResponse:
         url = TeaCore.compose_url(request)
 
@@ -264,6 +265,10 @@ class TeaCore:
             return retry_times
 
         return back_off_time
+
+    @staticmethod
+    async def sleep_async(t):
+        await asyncio.sleep(t)
 
     @staticmethod
     def sleep(t):
