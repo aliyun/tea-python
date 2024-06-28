@@ -103,8 +103,8 @@ class TeaCore:
         verify = not runtime_option.get('ignoreSSL', False)
 
         timeout = runtime_option.get('timeout')
-        connect_timeout = runtime_option.get('connectTimeout', timeout or DEFAULT_CONNECT_TIMEOUT)
-        read_timeout = runtime_option.get('readTimeout',timeout or DEFAULT_READ_TIMEOUT)
+        connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
+        read_timeout = runtime_option.get('readTimeout') or timeout or DEFAULT_READ_TIMEOUT
 
         connect_timeout, read_timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
 
@@ -176,8 +176,8 @@ class TeaCore:
         cert = runtime_option.get('cert', None)
 
         timeout = runtime_option.get('timeout')
-        connect_timeout = runtime_option.get('connectTimeout', timeout or DEFAULT_CONNECT_TIMEOUT)
-        read_timeout = runtime_option.get('readTimeout',timeout or DEFAULT_READ_TIMEOUT)
+        connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
+        read_timeout = runtime_option.get('readTimeout') or timeout or DEFAULT_READ_TIMEOUT
 
         timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
 
