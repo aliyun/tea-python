@@ -1,3 +1,7 @@
+### 2024-06-28 Version 0.3.7
+* Support `sleep` async method.
+* Add timeout option for all.
+
 ### 2024-03-22 Version 0.3.6
 * Support HTTPS proxy for async mode.
 * Fix SSL purpose to SERVER_AUTH
