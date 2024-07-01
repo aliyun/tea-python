@@ -21,7 +21,7 @@ from typing import Dict, Any, Optional
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
-DEFAULT_POOL_SIZE = 10
+DEFAULT_POOL_SIZE = 128
 
 logger = logging.getLogger('alibabacloud-tea')
 logger.setLevel(logging.DEBUG)
@@ -35,6 +35,7 @@ end_of_field = re.compile(b'\r\n\r\n|\r\r|\n\n')
 class TeaCore:
     http_adapter = adapters.HTTPAdapter(DEFAULT_POOL_SIZE, DEFAULT_POOL_SIZE)
     https_adapter = adapters.HTTPAdapter(DEFAULT_POOL_SIZE, DEFAULT_POOL_SIZE)
+    connectors = {};
 
     @staticmethod
     def get_adapter(prefix):
@@ -42,6 +43,21 @@ class TeaCore:
             return TeaCore.http_adapter
         else:
             return TeaCore.https_adapter
+
+    @staticmethod
+    def get_connector(prefix, verify):
+        if prefix.upper() == 'HTTP' or not verify:
+            if TeaCore.connectors.get('no_ssl') is None:
+                http_connector = aiohttp.TCPConnector(limit=DEFAULT_POOL_SIZE, limit_per_host=DEFAULT_POOL_SIZE)
+                TeaCore.connectors.update({'no_ssl': http_connector})
+            return TeaCore.connectors.get('no_ssl')
+        else:
+            if TeaCore.connectors.get('ssl') is None:
+                ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                ssl_context.load_verify_locations(certifi.where())
+                https_connector = aiohttp.TCPConnector(ssl=ssl_context, limit=DEFAULT_POOL_SIZE, limit_per_host=DEFAULT_POOL_SIZE)
+                TeaCore.connectors.update({'ssl': https_connector})
+            return TeaCore.connectors.get('ssl')
 
     @staticmethod
     def _prepare_http_debug(request, symbol):
@@ -115,15 +131,8 @@ class TeaCore:
             proxy = runtime_option.get('httpProxy')
             if not proxy:
                 proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
-        connector = None
-        ca_cert = certifi.where()
-        if ca_cert and request.protocol.upper() == 'HTTPS':
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_verify_locations(ca_cert)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context,
-            )
-        else:
+        connector = TeaCore.get_connector(request.protocol, verify)
+        if request.protocol.upper() == 'HTTP':
             verify = False
         timeout = aiohttp.ClientTimeout(
             sock_read=read_timeout,
@@ -361,15 +370,9 @@ class TeaCore:
             if not proxy:
                 proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
 
-        connector = None
+        connector = TeaCore.get_connector(request.protocol, verify)
         ca_cert = certifi.where()
-        if ca_cert and request.protocol.upper() == 'HTTPS':
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_verify_locations(ca_cert)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context,
-            )
-        else:
+        if request.protocol.upper() == 'HTTP':
             verify = False
 
         timeout = aiohttp.ClientTimeout(

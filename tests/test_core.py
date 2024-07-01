@@ -1,6 +1,7 @@
 import unittest
 import time
 import asyncio
+import certifi
 
 from aiohttp.client_exceptions import ClientProxyConnectionError
 from unittest import mock
