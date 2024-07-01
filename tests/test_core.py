@@ -187,6 +187,20 @@ class TestCore(unittest.TestCase):
         request.headers['host'] = "www.alibabacloud.com"
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
+        option = None
+        resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
+        self.assertIsNotNone(bytes.decode(resp.body))
+
+        option = {
+            "timeout": None,
+            "readTimeout": None,
+            "connectTimeout": None,
+        }
+        resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
+        self.assertIsNotNone(bytes.decode(resp.body))
+
         option = {
             "readTimeout": 20000,
             "connectTimeout": 10000,
@@ -239,9 +253,32 @@ class TestCore(unittest.TestCase):
     def test_async_do_action(self):
         request = TeaRequest()
         request.headers['host'] = "www.alibabacloud.com"
-        request.protocol = 'https'
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
+        option = None
+        loop = asyncio.get_event_loop()
+        task = asyncio.ensure_future(
+            TeaCore.async_do_action(request, option)
+        )
+        loop.run_until_complete(task)
+        response = task.result()
+        self.assertTrue(response.headers.get('server'))
+        self.assertIsNotNone(bytes.decode(response.body))
+
+        option = {
+            "timeout": None,
+            "readTimeout": None,
+            "connectTimeout": None,
+        }
+        loop = asyncio.get_event_loop()
+        task = asyncio.ensure_future(
+            TeaCore.async_do_action(request, option)
+        )
+        loop.run_until_complete(task)
+        response = task.result()
+        self.assertTrue(response.headers.get('server'))
+        self.assertIsNotNone(bytes.decode(response.body))
+
         option = {
             "readTimeout": 20000,
             "connectTimeout": 10000,
