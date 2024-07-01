@@ -1,3 +1,6 @@
+### 2024-07-01 Version 0.3.8
+* Fix default timeout when runtime_option has NoneType value of timeout.
+
 ### 2024-06-28 Version 0.3.7
 * Support `sleep` async method.
 * Add timeout option for all.
