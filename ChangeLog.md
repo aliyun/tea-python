@@ -1,3 +1,6 @@
+### 2024-07-04 Version 0.3.9
+* Support deprecated decorator.
+
 ### 2024-07-01 Version 0.3.8
 * Fix default timeout when runtime_option has NoneType value of timeout.
 

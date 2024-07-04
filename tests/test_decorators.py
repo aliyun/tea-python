@@ -41,6 +41,7 @@ class TestDecorators(unittest.TestCase):
                 return "old_static_method"
 
             @deprecated("Use 'new_static_method_async' instead")
+            @staticmethod
             async def old_static_method_async():
                 return "old_static_method_async"
 
