@@ -2,7 +2,6 @@ import unittest
 
 from Tea.request import TeaRequest
 
-
 class TestTeaRequest(unittest.TestCase):
     def test_init(self):
         request = TeaRequest()

@@ -6,7 +6,6 @@ from Tea.stream import BaseStream, READABLE, WRITABLE, STREAM_CLASS
 
 root_path = os.path.dirname(__file__)
 
-
 class TestTeaRequest(unittest.TestCase):
     class TestStream:
         def read(self):

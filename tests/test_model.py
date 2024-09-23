@@ -1,8 +1,6 @@
 import unittest
-import re
 
 from Tea.model import TeaModel
-
 
 class TestTeaModel(unittest.TestCase):
     class TestRegModel(TeaModel):
