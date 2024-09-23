@@ -27,8 +27,8 @@ logger.addHandler(ch)
 
 
 class TeaCore:
-    http_adapter = adapters.HTTPAdapter(DEFAULT_POOL_SIZE, DEFAULT_POOL_SIZE)
-    https_adapter = adapters.HTTPAdapter(DEFAULT_POOL_SIZE, DEFAULT_POOL_SIZE)
+    http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
+    https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
 
     @staticmethod
     def get_adapter(prefix):
