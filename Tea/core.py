@@ -1,21 +1,20 @@
+import asyncio
 import logging
 import os
-import time
-import aiohttp
 import ssl
-import certifi
-import asyncio
+import time
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
-from requests import status_codes, adapters, PreparedRequest
+import aiohttp
+import certifi
+from requests import PreparedRequest, adapters, status_codes
 
-from Tea.exceptions import TeaException, RequiredArgumentException, RetryError
+from Tea.exceptions import RequiredArgumentException, RetryError
 from Tea.model import TeaModel
 from Tea.request import TeaRequest
 from Tea.response import TeaResponse
 from Tea.stream import BaseStream
-
-from typing import Dict, Any, Optional
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000

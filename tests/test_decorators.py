@@ -1,5 +1,4 @@
 import unittest
-import warnings
 import asyncio
 
 from Tea.decorators import deprecated

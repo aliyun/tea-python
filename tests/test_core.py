@@ -1,20 +1,15 @@
-import unittest
-import time
 import asyncio
-
-from aiohttp.client_exceptions import ClientProxyConnectionError
-from unittest import mock
-from requests.exceptions import ProxyError
-
-from Tea.model import TeaModel
-from Tea.core import TeaCore
-from Tea.request import TeaRequest
-from Tea.exceptions import TeaException, RetryError
-from Tea.stream import BaseStream
-
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import time
+import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest import mock
 
+from Tea.core import TeaCore
+from Tea.exceptions import RetryError, TeaException
+from Tea.model import TeaModel
+from Tea.request import TeaRequest
+from Tea.stream import BaseStream
 
 class Request(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -24,11 +19,9 @@ class Request(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers['content-length']))
         self.wfile.write(b'{"result": "%s"}' % body)
 
-
 def run_server():
     server = HTTPServer(('localhost', 8888), Request)
     server.serve_forever()
-
 
 class TeaStream(BaseStream):
     def __init__(self):
@@ -110,7 +103,6 @@ class BaseUserResponse(TeaModel):
                 self.array.append(i)
         return self
 
-
 class ListUserResponse(TeaModel):
     def __init__(self):
         super().__init__()
@@ -136,7 +128,7 @@ class TestCore(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         server = threading.Thread(target=run_server)
-        server.setDaemon(True)
+        server.daemon = True
         server.start()
 
     def test_compose_url(self):
