@@ -1,3 +1,6 @@
+### 2024-09-24 Version 0.3.10
+* Support deprecated decorator.
+
 ### 2024-07-04 Version 0.3.9
 * Support deprecated decorator.
 

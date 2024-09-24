@@ -18,6 +18,15 @@
 import sys
 import ssl
 from setuptools import setup, find_packages
+import warnings
+
+# check python version
+if sys.version_info < (3, 7):
+    warnings.warn(
+        "Warning: This package will drop support for Python 3.6 in the next release（v0.4.0）. "
+        "Please upgrade to Python 3.7 or higher for continued use.",
+        DeprecationWarning
+    )
 
 """
 Setup module for tea.
@@ -25,19 +34,21 @@ Created on 3/24/2020
 @author: Alibaba Cloud
 """
 
-install_requires = [
-    'requests>=2.21.0, <3.0.0',
-]
+install_requires = []
 
 if sys.version_info.minor <= 7:
+    install_requires.append('requests>=2.21.0, <2.32.0')
     install_requires.append('aiohttp>=3.7.0, <3.9.0')
+    install_requires.append('urllib3<2.0.7')
 else:
+    install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <4.0.0')
 
 if ssl.OPENSSL_VERSION_INFO is not None and len(ssl.OPENSSL_VERSION_INFO) >= 3 and ssl.OPENSSL_VERSION_INFO[:3] >= (
         1, 1, 1):
     pass
 else:
+    install_requires.remove('urllib3<2.0.7')
     install_requires.append('urllib3<2.0.0')
 
 PACKAGE = "Tea"
@@ -67,7 +78,6 @@ setup_args = {
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
