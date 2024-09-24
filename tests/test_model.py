@@ -1,6 +1,6 @@
 import unittest
 
-from Tea.model import TeaModel
+from darabonba.model import TeaModel
 
 class TestTeaModel(unittest.TestCase):
     class TestRegModel(TeaModel):
@@ -112,4 +112,4 @@ class TestTeaModel(unittest.TestCase):
         tm = str(TeaModel())
         self.assertTrue(model.startswith('{\''))
         self.assertTrue(model.endswith('}'))
-        self.assertTrue(tm.startswith('<Tea.model.TeaModel object'))
+        self.assertTrue(tm.startswith('<darabonba.model.TeaModel object'))

@@ -1,6 +1,6 @@
 import unittest
 
-from Tea.request import TeaRequest
+from darabonba.request import TeaRequest
 
 class TestTeaRequest(unittest.TestCase):
     def test_init(self):
