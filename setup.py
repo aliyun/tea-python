@@ -18,15 +18,6 @@
 import sys
 import ssl
 from setuptools import setup, find_packages
-import warnings
-
-# check python version
-if sys.version_info < (3, 7):
-    warnings.warn(
-        "Warning: This package will drop support for Python 3.6 in the next release（v0.4.0）. "
-        "Please upgrade to Python 3.7 or higher for continued use.",
-        DeprecationWarning
-    )
 
 """
 Setup module for tea.
@@ -86,7 +77,7 @@ setup_args = {
         'Programming Language :: Python :: 3.12',
         'Topic :: Software Development',
     ),
-    'python_requires': '>=3.6'
+    'python_requires': '>=3.7'
 }
 
 setup(name='alibabacloud-tea', **setup_args)
