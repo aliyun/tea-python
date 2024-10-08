@@ -9,6 +9,10 @@ English | [简体中文](README-CN.md)
 [![codecov](https://codecov.io/gh/aliyun/tea-python/graph/badge.svg?token=FN19OMRTVY)](https://codecov.io/gh/aliyun/tea-python)
 [![python](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)
 
+## Important Updates
+
+- Starting from version 0.4.0, the package `alibabacloud-tea` only supports Python 3.7 and above.
+
 ## Installation
 
 - **Install with pip**

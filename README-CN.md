@@ -9,6 +9,10 @@
 [![codecov](https://codecov.io/gh/aliyun/tea-python/graph/badge.svg?token=FN19OMRTVY)](https://codecov.io/gh/aliyun/tea-python)
 [![python](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)
 
+## 重要的更新
+
+- `alibabacloud-tea` 包版本从 0.4.0 开始，仅支持 Python 3.7 及以上的环境。
+
 ## 安装
 
 - **使用 pip 安装(推荐)**
