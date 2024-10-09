@@ -1,3 +1,6 @@
+### 2024-10-09 Version 0.4.0
+* Dropped support for Python 3.6.
+
 ### 2024-09-24 Version 0.3.10
 * Increase connection pool max size.
 * Deprecated Python 3.6.
