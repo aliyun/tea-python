@@ -27,10 +27,11 @@ Created on 3/24/2020
 
 install_requires = []
 
-if sys.version_info.minor <= 7:
+if sys.version_info.minor <= 8:
     install_requires.append('requests>=2.21.0, <2.32.0')
     install_requires.append('aiohttp>=3.7.0, <3.9.0')
     install_requires.append('urllib3<2.0.7')
+    install_requires.append('yarl<1.9.5')
 else:
     install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <4.0.0')
@@ -42,7 +43,7 @@ else:
     install_requires.remove('urllib3<2.0.7')
     install_requires.append('urllib3<2.0.0')
 
-PACKAGE = "Tea"
+PACKAGE = "darabonba"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
 AUTHOR_EMAIL = "alibaba-cloud-sdk-dev-team@list.alibaba-inc.com"

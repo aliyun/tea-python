@@ -1,7 +1,7 @@
 import unittest
 import asyncio
 
-from Tea.decorators import deprecated
+from darabonba.decorators import deprecated, type_check
 
 
 class TestDecorators(unittest.TestCase):
@@ -119,3 +119,31 @@ class TestDecorators(unittest.TestCase):
         self.assertEqual(result, "old_instance_method_async")
         self.assertIn("Call to deprecated function old_instance_method_async. Use 'new_instance_method_async' instead",
                       str(cm.warning))
+
+    def test_type_check_function(self):
+        @type_check(int, str, z=str)
+        def example_function(x, y, z="default"):
+            return f"x: {x}, y: {y}, z: {z}"
+
+        with self.assertWarns(UserWarning) as cm:
+            result = example_function('test', 123)
+
+        self.assertEqual(result, "x: test, y: 123, z: default")
+        self.assertIn("Argument 0 is not of type <class 'int'>", str(cm.warning))
+
+        @type_check(int, str, z=str)
+        async def example_function(x, y, z="default"):
+            return f"x: {x}, y: {y}, z: {z}"
+
+        with self.assertWarns(UserWarning) as cm:
+            loop = asyncio.get_event_loop()
+            task = asyncio.ensure_future(
+                example_function('test', 123)
+            )
+            loop.run_until_complete(task)
+            result = task.result()
+
+        self.assertEqual(result, "x: test, y: 123, z: default")
+        self.assertIn("Argument 0 is not of type <class 'int'>",
+                      str(cm.warning))
+

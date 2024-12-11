@@ -1,5 +1,5 @@
 import re
-from .exceptions import RequiredArgumentException, ValidateException
+from darabonba.exceptions import RequiredArgumentException, ValidateException
 
 
 class TeaModel:

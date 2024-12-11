@@ -1,4 +1,5 @@
 import asyncio
+import aiohttp
 import logging
 import os
 import ssl
@@ -6,15 +7,15 @@ import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
-import aiohttp
 import certifi
-from requests import PreparedRequest, adapters, status_codes
+from requests import status_codes, adapters, PreparedRequest
 
-from Tea.exceptions import RequiredArgumentException, RetryError
-from Tea.model import TeaModel
-from Tea.request import TeaRequest
-from Tea.response import TeaResponse
-from Tea.stream import BaseStream
+from darabonba.exceptions import RequiredArgumentException, RetryError
+from darabonba.model import TeaModel
+from darabonba.request import TeaRequest
+from darabonba.response import TeaResponse
+from darabonba.stream import BaseStream
+
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000

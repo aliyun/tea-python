@@ -1,15 +1,19 @@
 import asyncio
+
+from unittest import mock
+
+
 import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
-from Tea.core import TeaCore
-from Tea.exceptions import RetryError, TeaException
-from Tea.model import TeaModel
-from Tea.request import TeaRequest
-from Tea.stream import BaseStream
+from darabonba.core import TeaCore
+from darabonba.exceptions import RetryError, TeaException
+from darabonba.model import TeaModel
+from darabonba.request import TeaRequest
+from darabonba.stream import BaseStream
 
 class Request(BaseHTTPRequestHandler):
     def do_POST(self):

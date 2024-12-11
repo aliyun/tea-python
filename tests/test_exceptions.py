@@ -1,6 +1,6 @@
 from unittest import TestCase
-from Tea.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
-from Tea.request import TeaRequest
+from darabonba.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
+from darabonba.request import TeaRequest
 
 
 class TestTeaException(TestCase):

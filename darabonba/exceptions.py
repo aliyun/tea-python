@@ -1,4 +1,4 @@
-from .request import TeaRequest
+from darabonba.request import TeaRequest
 
 
 class TeaException(Exception):
