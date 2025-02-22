@@ -1,15 +1,17 @@
 import asyncio
 import threading
 import time
+import ssl
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
-from Tea.core import TeaCore
+from Tea.core import TeaCore, TLSVersion
 from Tea.exceptions import RetryError, TeaException
 from Tea.model import TeaModel
 from Tea.request import TeaRequest
 from Tea.stream import BaseStream
+
 
 class Request(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -19,9 +21,11 @@ class Request(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers['content-length']))
         self.wfile.write(b'{"result": "%s"}' % body)
 
+
 def run_server():
     server = HTTPServer(('localhost', 8888), Request)
     server.serve_forever()
+
 
 class TeaStream(BaseStream):
     def __init__(self):
@@ -102,6 +106,7 @@ class BaseUserResponse(TeaModel):
             for i in dic.get('array'):
                 self.array.append(i)
         return self
+
 
 class ListUserResponse(TeaModel):
     def __init__(self):
@@ -209,7 +214,8 @@ class TestCore(unittest.TestCase):
                 "period": None
             },
             'debug': 'sdk',
-            "ignoreSSL": None
+            "ignoreSSL": None,
+            "tlsMinVersion": TLSVersion.TLSv1_2
         }
         resp = TeaCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
@@ -241,6 +247,104 @@ class TestCore(unittest.TestCase):
             assert False
         except Exception as e:
             self.assertIsInstance(e, RetryError)
+
+    def test_get_adapter(self):
+        # Test TLSv1
+        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = mock.Mock()
+            mock_create_default_context.return_value = mock_context
+
+            adapter = TeaCore.get_adapter('https', 'TLSv1')
+            self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1)
+
+        # Test TLSv1.1
+        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = mock.Mock()
+            mock_create_default_context.return_value = mock_context
+
+            adapter = TeaCore.get_adapter('https', 'TLSv1.1')
+            self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_1)
+
+        # Test TLSv1.2
+        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = mock.Mock()
+            mock_create_default_context.return_value = mock_context
+
+            adapter = TeaCore.get_adapter('https', 'TLSv1.2')
+            self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_2)
+
+        # Test TLSv1.3
+        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = mock.Mock()
+            mock_create_default_context.return_value = mock_context
+
+            adapter = TeaCore.get_adapter('https', 'TLSv1.3')
+            self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_3)
+
+        # Test invalid TLS version
+        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = mock.Mock()
+            mock_create_default_context.return_value = mock_context
+
+            adapter = TeaCore.get_adapter('https', 'TLSv1.4')
+            self.assertNotIsInstance(mock_context.minimum_version, ssl.TLSVersion)
+
+        # Test HTTP protocol
+        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = mock.Mock()
+            mock_create_default_context.return_value = mock_context
+
+            adapter = TeaCore.get_adapter('http', 'TLSv1.2')
+            self.assertNotIsInstance(mock_context.minimum_version, ssl.TLSVersion)
+
+    def test_get_session(self):
+        request = TeaRequest()
+        request.headers['host'] = "127.0.0.1:9999"
+        request.protocol = "https"
+        session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
+
+        # Test with TLSv1.2
+        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+            mock_adapter = mock.Mock()
+            mock_get_adapter.return_value = mock_adapter
+
+            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2')
+            self.assertIn(session_key, TeaCore._sessions)
+            self.assertEqual(session, TeaCore._sessions[session_key])
+
+        # Test with TLSv1.3
+        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+            mock_adapter = mock.Mock()
+            mock_get_adapter.return_value = mock_adapter
+
+            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.3')
+            mock_get_adapter.assert_not_called()  # Should not call get_adapter again
+            self.assertIn(session_key, TeaCore._sessions)
+            self.assertEqual(session, TeaCore._sessions[session_key])
+
+        # Test with HTTP protocol
+        request.protocol = "http"
+        session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
+
+        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+            mock_adapter = mock.Mock()
+            mock_get_adapter.return_value = mock_adapter
+
+            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2')
+            self.assertIn(session_key, TeaCore._sessions)
+            self.assertEqual(session, TeaCore._sessions[session_key])
+
+        # Test session caching
+        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+            mock_adapter = mock.Mock()
+            mock_get_adapter.return_value = mock_adapter
+
+            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            mock_get_adapter.assert_not_called()  # Should not call get_adapter again
+            self.assertIn(session_key, TeaCore._sessions)
+            self.assertEqual(session, TeaCore._sessions[session_key])
 
     def test_async_do_action(self):
         request = TeaRequest()
@@ -286,7 +390,8 @@ class TestCore(unittest.TestCase):
                 "policy": None,
                 "period": None
             },
-            "ignoreSSL": None
+            "ignoreSSL": None,
+            "tlsMinVersion": TLSVersion.TLSv1_2
         }
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(
