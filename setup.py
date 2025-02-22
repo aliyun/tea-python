@@ -31,6 +31,9 @@ if sys.version_info.minor <= 7:
     install_requires.append('requests>=2.21.0, <2.32.0')
     install_requires.append('aiohttp>=3.7.0, <3.9.0')
     install_requires.append('urllib3<2.0.7')
+elif sys.version_info.minor <= 8:
+    install_requires.append('requests>=2.21.0, <3.0.0')
+    install_requires.append('aiohttp>=3.7.0, <3.11.0')
 else:
     install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <4.0.0')

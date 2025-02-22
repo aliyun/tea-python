@@ -3,12 +3,13 @@ import logging
 import os
 import ssl
 import time
+from enum import Enum
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
 import aiohttp
 import certifi
-from requests import PreparedRequest, adapters, status_codes
+from requests import Session, PreparedRequest, adapters, status_codes
 
 from Tea.exceptions import RequiredArgumentException, RetryError
 from Tea.model import TeaModel
@@ -26,16 +27,65 @@ ch = logging.StreamHandler()
 logger.addHandler(ch)
 
 
+class TLSVersion(Enum):
+    TLSv1 = 'TLSv1'
+    TLSv1_1 = 'TLSv1.1'
+    TLSv1_2 = 'TLSv1.2'
+    TLSv1_3 = 'TLSv1.3'
+
+
+class _TLSAdapter(adapters.HTTPAdapter):
+    """A HTTPAdapter that uses an arbitrary TLS version."""
+
+    def __init__(self, ssl_context=None, **kwargs):
+        self.ssl_context = ssl_context
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        """Override the init_poolmanager method to set the SSL."""
+        kwargs['ssl_context'] = self.ssl_context
+        super().init_poolmanager(*args, **kwargs)
+
+
 class TeaCore:
+    _sessions = {}
     http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
     https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
 
     @staticmethod
-    def get_adapter(prefix):
-        if prefix.upper() == 'HTTP':
-            return TeaCore.http_adapter
-        else:
-            return TeaCore.https_adapter
+    def _set_tls_minimum_version(sls_context, tls_min_version):
+        context = sls_context
+        if tls_min_version is not None:
+            if tls_min_version == 'TLSv1':
+                context.minimum_version = ssl.TLSVersion.TLSv1
+            elif tls_min_version == 'TLSv1.1':
+                context.minimum_version = ssl.TLSVersion.TLSv1_1
+            elif tls_min_version == 'TLSv1.2':
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+            elif tls_min_version == 'TLSv1.3':
+                context.minimum_version = ssl.TLSVersion.TLSv1_3
+        return context
+
+    @staticmethod
+    def get_adapter(prefix, tls_min_version: str = None):
+        context = ssl.create_default_context()
+        if prefix.upper() == 'HTTPS':
+            context = TeaCore._set_tls_minimum_version(context, tls_min_version)
+        adapter = _TLSAdapter(ssl_context=context, pool_connections=DEFAULT_POOL_SIZE,
+                              pool_maxsize=DEFAULT_POOL_SIZE * 4)
+        return adapter
+
+    @staticmethod
+    def _get_session(session_key: str, protocol: str, tls_min_version: str = None):
+        if session_key not in TeaCore._sessions:
+            session = Session()
+            adapter = TeaCore.get_adapter(protocol, tls_min_version)
+            if protocol.upper() == 'HTTPS':
+                session.mount('https://', adapter)
+            else:
+                session.mount('http://', adapter)
+            TeaCore._sessions[session_key] = session
+        return TeaCore._sessions[session_key]
 
     @staticmethod
     def _prepare_http_debug(request, symbol):
@@ -100,6 +150,9 @@ class TeaCore:
 
         url = TeaCore.compose_url(request)
         verify = not runtime_option.get('ignoreSSL', False)
+        tls_min_version = runtime_option.get('tlsMinVersion')
+        if isinstance(tls_min_version, Enum):
+            tls_min_version = tls_min_version.value
 
         timeout = runtime_option.get('timeout')
         connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
@@ -121,6 +174,7 @@ class TeaCore:
         ca_cert = certifi.where()
         if ca_cert and request.protocol.upper() == 'HTTPS':
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            ssl_context = TeaCore._set_tls_minimum_version(ssl_context, tls_min_version)
             ssl_context.load_verify_locations(ca_cert)
             connector = aiohttp.TCPConnector(
                 ssl=ssl_context,
@@ -170,6 +224,10 @@ class TeaCore:
         runtime_option = runtime_option or {}
 
         verify = not runtime_option.get('ignoreSSL', False)
+        tls_min_version = runtime_option.get('tlsMinVersion')
+        if isinstance(tls_min_version, Enum):
+            tls_min_version = tls_min_version.value
+
         if verify:
             verify = runtime_option.get('ca', True) if runtime_option.get('ca', True) is not None else True
         cert = runtime_option.get('cert', None)
@@ -208,9 +266,14 @@ class TeaCore:
         if no_proxy:
             proxies['no_proxy'] = no_proxy
 
-        adapter = TeaCore.get_adapter(request.protocol)
+        host = request.headers.get('host')
+        host = host.rstrip('/')
+
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}'
+        session = TeaCore._get_session(session_key=session_key, protocol=request.protocol,
+                                       tls_min_version=tls_min_version)
         try:
-            resp = adapter.send(
+            resp = session.send(
                 p,
                 proxies=proxies,
                 timeout=timeout,
