@@ -1,3 +1,6 @@
+### 2025-02-25 Version 0.4.1
+* Support TLS minimum version.
+
 ### 2024-10-09 Version 0.4.0
 * Dropped support for Python 3.6.
 
