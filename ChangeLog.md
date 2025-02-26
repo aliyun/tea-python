@@ -1,3 +1,6 @@
+### 2025-02-26 Version 0.4.2
+* Update urllib3 version for python 3.8.
+
 ### 2025-02-25 Version 0.4.1
 * Support TLS minimum version.
 
