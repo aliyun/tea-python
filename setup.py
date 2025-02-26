@@ -34,6 +34,7 @@ if sys.version_info.minor <= 7:
 elif sys.version_info.minor <= 8:
     install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <3.11.0')
+    install_requires.append('urllib3<2.3.0')
 else:
     install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <4.0.0')
@@ -42,7 +43,10 @@ if ssl.OPENSSL_VERSION_INFO is not None and len(ssl.OPENSSL_VERSION_INFO) >= 3 a
         1, 1, 1):
     pass
 else:
-    install_requires.remove('urllib3<2.0.7')
+    if 'urllib3<2.0.7' in install_requires:
+        install_requires.remove('urllib3<2.0.7')
+    if 'urllib3<2.3.0' in install_requires:
+        install_requires.remove('urllib3<2.3.0')
     install_requires.append('urllib3<2.0.0')
 
 PACKAGE = "Tea"
