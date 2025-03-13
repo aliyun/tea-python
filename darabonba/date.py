@@ -7,7 +7,8 @@ class Date:
             "%Y-%m-%d %H:%M:%S.%f %z %Z",
             "%Y-%m-%dT%H:%M:%S%z",
             "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%dT%H:%M:%S"
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S.%f", 
         ]
         
         self.date = None
@@ -21,7 +22,7 @@ class Date:
         if self.date is None:
             raise ValueError(f"unable to parse date: {date_input}")
 
-    def format(self, layout):
+    def strftime(self, layout):
         layout = layout.replace("yyyy", "%Y")
         layout = layout.replace("MM", "%m")
         layout = layout.replace("dd", "%d")
@@ -31,16 +32,12 @@ class Date:
         layout = layout.replace("a", "%p")
         layout = layout.replace("EEEE", "%A")
         layout = layout.replace("E", "%a")
-        
         return self.date.strftime(layout)
     
-    def unix(self):
+    def timestamp(self):
         return int(self.date.timestamp())
     
-    def utc(self):
-        return self.date.strftime("%Y-%m-%d %H:%M:%S.%f %z %Z")
-    
-    def sub(self, amount, unit):
+    def sub(self, unit, amount):
         if unit in ["second", "seconds"]:
             return Date((self.date - timedelta(seconds=amount)).isoformat())
         elif unit in ["minute", "minutes"]:
@@ -56,7 +53,7 @@ class Date:
         elif unit in ["year", "years"]:
             return Date((self.date.replace(year=self.date.year - amount)).isoformat())
     
-    def add(self, amount, unit):
+    def add(self, unit, amount):
         if unit in ["second", "seconds"]:
             return Date((self.date + timedelta(seconds=amount)).isoformat())
         elif unit in ["minute", "minutes"]:
@@ -68,24 +65,38 @@ class Date:
         elif unit in ["week", "weeks"]:
             return Date((self.date + timedelta(weeks=amount)).isoformat())
         elif unit in ["month", "months"]:
-            return Date((self.date.replace(month=self.date.month + amount)).isoformat())
+            new_month = self.date.month + amount
+            new_year = self.date.year + (new_month - 1) // 12
+            new_month = (new_month - 1) % 12 + 1
+            if self.date.day > 28:
+                if new_month == 2:
+                    new_day = min(self.date.day, 29)
+                    if new_day == 29 and not (new_year % 4 == 0 and (new_year % 100 != 0 or new_year % 400 == 0)):
+                        new_day = 28
+                else:
+                    new_day = min(self.date.day, [31, 30][new_month % 2])
+            else:
+                new_day = self.date.day
+                
+            new_date = self.date.replace(year=new_year, month=new_month, day=new_day)
+            return Date(new_date.isoformat())
         elif unit in ["year", "years"]:
             return Date((self.date.replace(year=self.date.year + amount)).isoformat())
     
-    def diff(self, amount, diff_date):
-        if amount in ["second", "seconds"]:
+    def diff(self, unit, diff_date):
+        if unit in ["second", "seconds"]:
             return int((self.date - diff_date.date).total_seconds())
-        elif amount in ["minute", "minutes"]:
+        elif unit in ["minute", "minutes"]:
             return int((self.date - diff_date.date).total_seconds() / 60)
-        elif amount in ["hour", "hours"]:
+        elif unit in ["hour", "hours"]:
             return int((self.date - diff_date.date).total_seconds() / 3600)
-        elif amount in ["day", "days"]:
+        elif unit in ["day", "days"]:
             return int((self.date - diff_date.date).total_seconds() / (3600 * 24))
-        elif amount in ["week", "weeks"]:
+        elif unit in ["week", "weeks"]:
             return int((self.date - diff_date.date).total_seconds() / (3600 * 24 * 7))
-        elif amount in ["month", "months"]:
+        elif unit in ["month", "months"]:
             return (self.date.year - diff_date.date.year) * 12 + (self.date.month - diff_date.date.month)
-        elif amount in ["year", "years"]:
+        elif unit in ["year", "years"]:
             return self.date.year - diff_date.date.year
     
     def hour(self):
@@ -100,9 +111,6 @@ class Date:
     def month(self):
         return self.date.month
     
-    def year(self):
-        return self.date.year
-    
     def day_of_month(self):
         return self.date.day
     
@@ -112,3 +120,9 @@ class Date:
      
     def week_of_year(self):
         return self.date.isocalendar()[1]
+    
+    def year(self):
+        return self.date.year
+    
+    def UTC(self):
+        return self.date.strftime("%Y-%m-%d %H:%M:%S.%f %z %Z")

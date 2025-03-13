@@ -1,42 +1,99 @@
-import xml.etree.ElementTree as ET
-from darabonba.response import TeaResponse
+from xml.etree import ElementTree
+from darabonba.model import DaraModel
+from collections import defaultdict
 
 class XML:
 
+    _LIST_TYPE = (list, tuple, set)
+
     @staticmethod
-    def parse_xml(body, response: TeaResponse):
-        try:
-            tree = ET.ElementTree(ET.fromstring(body))
-            root = tree.getroot()
-            response.status_code = int(root.find('status_code').text)
-            response.status_message = root.find('status_message').text
-            response.headers = {header.tag: header.text for header in root.find('headers')}
-            response.body = root.find('body').text
-            return response
-        except ET.ParseError as e:
-            raise Exception('Error parsing XML: {}'.format(e))
+    def __get_xml_factory(elem, val, parent_element=None):
+        if val is None:
+            return
+
+        if isinstance(val, dict):
+            XML.__get_xml_by_dict(elem, val)
+        elif isinstance(val, XML._LIST_TYPE):
+            if parent_element is None:
+                raise RuntimeError("Missing root tag")
+            XML.__get_xml_by_list(elem, val, parent_element)
+        else:
+            elem.text = str(val)
+
+    @staticmethod
+    def __get_xml_by_dict(elem, val):
+        for k in val:
+            sub_elem = ElementTree.SubElement(elem, k)
+            XML.__get_xml_factory(sub_elem, val[k], elem)
+
+    @staticmethod
+    def __get_xml_by_list(elem, val, parent_element):
+        i = 0
+        tag_name = elem.tag
+        if val.__len__() > 0:
+            XML.__get_xml_factory(elem, val[0], parent_element)
+
+        for item in val:
+            if i > 0:
+                sub_elem = ElementTree.SubElement(parent_element, tag_name)
+                XML.__get_xml_factory(sub_elem, item, parent_element)
+            i = i + 1
+
+    @staticmethod
+    def _parse_xml(t):
+        d = {t.tag: {} if t.attrib else None}
+        children = list(t)
+        if children:
+            dd = defaultdict(list)
+            for dc in map(XML._parse_xml, children):
+                for k, v in dc.items():
+                    dd[k].append(v)
+            d = {t.tag: {k: v[0] if len(v) == 1 else v for k, v in dd.items()}}
+
+        if t.attrib:
+            d[t.tag].update(('@' + k, v) for k, v in t.attrib.items())
+
+        if t.text:
+            text = t.text.strip()
+            if children or t.attrib:
+                if text:
+                    d[t.tag]['#text'] = text
+            else:
+                d[t.tag] = text
+        return d
+
+    @staticmethod
+    def parse_xml(body, response=None):
+        """
+        Parse body into the response, and put the resposne into a object
+        @param body: source content
+        @param response: target model
+        @return the final object
+        """
+        return XML._parse_xml(ElementTree.fromstring(body))
 
     @staticmethod
     def to_xml(body):
-        root = ET.Element("response")
-        
-        if 'status_code' in body:
-            status_code = ET.SubElement(root, 'status_code')
-            status_code.text = str(body['status_code'])
-        
-        if 'status_message' in body:
-            status_message = ET.SubElement(root, 'status_message')
-            status_message.text = body['status_message']
-        
-        if 'headers' in body:
-            headers = ET.SubElement(root, 'headers')
-            for key, value in body['headers'].items():
-                header = ET.SubElement(headers, key)
-                header.text = value
-        
-        if 'body' in body:
-            body_elem = ET.SubElement(root, 'body')
-            body_elem.text = body['body']
-            
-        xml_str = ET.tostring(root, encoding='unicode')
-        return xml_str
+        """
+        Parse body as a xml string
+        @param body: source body
+        @return the xml string
+        """
+        if body is None:
+            return
+
+        dic = {}
+        if isinstance(body, DaraModel):
+            dic = body.to_map()
+        elif isinstance(body, dict):
+            dic = body
+
+        if dic.__len__() == 0:
+            return ""
+        else:
+            result_xml = '<?xml version="1.0" encoding="utf-8"?>'
+            for k in dic:
+                elem = ElementTree.Element(k)
+                XML.__get_xml_factory(elem, dic[k])
+                result_xml += bytes.decode(ElementTree.tostring(elem), encoding="utf-8")
+            return result_xml

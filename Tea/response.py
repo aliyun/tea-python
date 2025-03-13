@@ -1,4 +1,4 @@
-class DaraResponse:
+class TeaResponse:
     # status
     status_code = None
     # reason

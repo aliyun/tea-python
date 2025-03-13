@@ -45,11 +45,11 @@
 * Update some config.
 
 ### 2021-04-27 Version 0.2.7
-* Throw TeaException will not retry.
+* Throw DaraException will not retry.
 * Improve instance check of stream.
 
 ### 2021-03-17 Version 0.2.6
-* Improve TeaModel to avoid serialization exception.
+* Improve DaraModel to avoid serialization exception.
 
 ### 2021-03-15 Version 0.2.5
 * The `do_action` method uses a connection pool.
@@ -71,7 +71,7 @@
 * Drop support for python3.4.
 * Drop support for python3.5.
 * Added support for python3.9.
-* Improve TeaException error message.
+* Improve DaraException error message.
 * Support async do action.
 
 ### 2020-10-30 Version 0.1.5
@@ -125,7 +125,7 @@
 * Supported https proxy
 
 ### 2020-05-21 Version 0.0.3
-* Support merge TeaModel
+* Support merge DaraModel
 * Add BaseStream class
 
 ### 2020-05-15 Version 0.0.2
