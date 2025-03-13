@@ -2,7 +2,7 @@ import unittest
 import os
 import io
 
-from darabonba.stream import BaseStream, READABLE, WRITABLE, STREAM_CLASS
+from Tea.stream import BaseStream, READABLE, WRITABLE, STREAM_CLASS
 
 root_path = os.path.dirname(__file__)
 
