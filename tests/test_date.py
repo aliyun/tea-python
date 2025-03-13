@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
-from darabonba.utils.date import Date  # 替换 your_module_name 为实际模块名
+from darabonba.date import Date  # 替换 your_module_name 为实际模块名
 
 class TestDate(unittest.TestCase):
 
@@ -14,28 +14,28 @@ class TestDate(unittest.TestCase):
         with self.assertRaises(ValueError):
             Date("invalid date string")
     
-    def test_format(self):
+    def test_strftime(self):
         d = Date("2023-10-01 12:30:00")
-        self.assertEqual(d.format("yyyy-MM-dd hh:mm:ss"), "2023-10-01 12:30:00")
-        self.assertEqual(d.format("dd/MM/yyyy hh:mm:ss a"), "01/10/2023 12:30:00 PM")
+        self.assertEqual(d.strftime("yyyy-MM-dd hh:mm:ss"), "2023-10-01 12:30:00")
+        self.assertEqual(d.strftime("dd/MM/yyyy hh:mm:ss a"), "01/10/2023 12:30:00 PM")
     
-    def test_unix(self):
+    def test_timestamp(self):
         d = Date("2023-10-01 12:30:00")
         expected_timestamp = int(datetime.strptime("2023-10-01 12:30:00", "%Y-%m-%d %H:%M:%S").timestamp())
-        self.assertEqual(d.unix(), expected_timestamp)
+        self.assertEqual(d.timestamp(), expected_timestamp)
     
     def test_utc(self):
         d = Date("2023-10-01 12:30:00")
         expected_utc = datetime.strptime("2023-10-01 12:30:00", "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S.%f %z %Z")
-        self.assertEqual(d.utc(), expected_utc)
+        self.assertEqual(d.UTC(), expected_utc)
     
     def test_sub(self):
         d = Date("2023-10-01 12:30:00")
-        self.assertEqual(d.sub(1, "day").date.date(), datetime.strptime("2023-09-30", "%Y-%m-%d").date())
+        self.assertEqual(d.sub("day", 1).date.date(), datetime.strptime("2023-09-30", "%Y-%m-%d").date())
     
     def test_add(self):
         d = Date("2023-10-01 12:30:00")
-        self.assertEqual(d.add(1, "day").date.date(), datetime.strptime("2023-10-02", "%Y-%m-%d").date())
+        self.assertEqual(d.add("day", 1).date.date(), datetime.strptime("2023-10-02", "%Y-%m-%d").date())
     
     def test_diff(self):
         d1 = Date("2023-10-01 12:30:00")

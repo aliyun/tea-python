@@ -13,7 +13,7 @@ from darabonba.core import TeaCore
 from darabonba.exceptions import RetryError, TeaException
 from darabonba.model import TeaModel
 from darabonba.request import TeaRequest
-from darabonba.stream import BaseStream
+from darabonba.utils.stream import BaseStream
 
 class Request(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -382,7 +382,7 @@ class TestCore(unittest.TestCase):
 
     def test_sleep(self):
         ts_before = int(round(time.time() * 1000))
-        TeaCore.sleep(1)
+        TeaCore.sleep(1000)
         ts_after = int(round(time.time() * 1000))
         ts_subtract = ts_after - ts_before
         self.assertTrue(1000 <= ts_subtract < 1100)
@@ -391,7 +391,7 @@ class TestCore(unittest.TestCase):
         ts_before = int(round(time.time() * 1000))
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(
-            TeaCore.sleep_async(1)
+            TeaCore.sleep_async(1000)
         )
         loop.run_until_complete(task)
         ts_after = int(round(time.time() * 1000))

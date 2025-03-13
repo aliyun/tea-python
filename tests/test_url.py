@@ -1,5 +1,5 @@
 import unittest
-from darabonba.utils.url import URL  # Replace 'your_module' with the name of the actual module
+from darabonba.url import URL  # Replace 'your_module' with the name of the actual module
 
 class TestURL(unittest.TestCase):
     
@@ -66,13 +66,13 @@ class TestURL(unittest.TestCase):
         url = URL("http://example.com")
         self.assertEqual(url.auth(), "")
     
-    def test_parse_url(self):
-        url = URL.parse_url("http://example.com")
+    def test_parse(self):
+        url = URL.parse("http://example.com")
         self.assertIsNotNone(url)
     
     def test_encode_url(self):
-        self.assertEqual(URL.encode_url("hello/world"), "hello/world")
-        self.assertEqual(URL.encode_url("hello world"), "hello%20world")
+        self.assertEqual(URL.url_encode("hello/world"), "hello/world")
+        self.assertEqual(URL.url_encode("hello world"), "hello%20world")
         
     def test_percent_encode(self):
         self.assertEqual(URL.percent_encode("http://example.com/path to encode"), "http%3A%2F%2Fexample.com%2Fpath%20to%20encode")

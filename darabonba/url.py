@@ -60,11 +60,11 @@ class URL:
         return ""
     
     @staticmethod
-    def parse_url(url_str):
+    def parse(url_str):
         return URL.new_url(url_str)
     
     @staticmethod
-    def encode_url(url_str):
+    def url_encode(url_str):
         if not url_str:
             return ""
         parts = url_str.split('/')

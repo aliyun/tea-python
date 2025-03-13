@@ -6,7 +6,7 @@ import ssl
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
-
+import re
 import certifi
 from requests import status_codes, adapters, PreparedRequest
 
@@ -14,8 +14,13 @@ from darabonba.exceptions import RequiredArgumentException, RetryError
 from darabonba.model import TeaModel
 from darabonba.request import TeaRequest
 from darabonba.response import TeaResponse
-from darabonba.stream import BaseStream
+from darabonba.utils.stream import BaseStream
+from requests import status_codes, adapters, PreparedRequest, Response
+from darabonba.event import Event
+import json
+from darabonba.exceptions import TeaException
 
+sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
@@ -267,12 +272,12 @@ class TeaCore:
         return back_off_time
 
     @staticmethod
-    async def sleep_async(t):
-        await asyncio.sleep(t)
+    async def sleep_async(millisecond: int):
+        await asyncio.sleep(millisecond / 1000)
 
     @staticmethod
-    def sleep(t):
-        time.sleep(t)
+    def sleep(millisecond: int):
+        time.sleep(millisecond / 1000)
 
     @staticmethod
     def is_retryable(ex) -> bool:
@@ -312,3 +317,83 @@ class TeaCore:
                 return model
         else:
             return model
+
+    @staticmethod
+    async def async_read_as_sse(
+            stream
+    ):
+        async for chunk in stream:
+            event = Event()
+            status_code = chunk.get('response').status_code
+            headers = chunk.get('response').headers
+            if 400 <= status_code:
+                decoded_line = chunk.get('stream').decode('utf-8')
+                err = json.loads(decoded_line)
+                err['statusCode'] = status_code
+                raise TeaException({
+                    'code': f"{err.get('Code')}",
+                    'message': f"code: {status_code}, {err.get('Message')} request id: {err.get('RequestId')}",
+                    'data': err,
+                    'description': f"{err.get('Description')}",
+                    'accessDeniedDetail': err.get('AccessDeniedDetail')
+                })
+            for line in chunk.get('stream').splitlines():
+                decoded_line = line.decode('utf-8')
+                if not decoded_line.strip() or decoded_line.startswith(':'):
+                    continue
+                match = sse_line_pattern.match(decoded_line)
+                if match is not None:
+                    name = match.group('name')
+                    value = match.group('value')
+                    if name == 'data':
+                        if event.data:
+                            event.data = '%s\n%s' % (event.data, value)
+                        else:
+                            event.data = value
+                    elif name == 'event':
+                        event.event = value
+                    elif name == 'id':
+                        event.id = value
+                    elif name == 'retry':
+                        event.retry = int(value)
+            yield {'status_code': status_code, 'headers': headers, 'event': event}
+
+    @staticmethod
+    def read_as_sse(
+            stream: Response
+    ):
+        for chunk in stream:
+            event = Event()
+            status_code = chunk.get('response').status_code
+            headers = chunk.get('response').headers
+            if 400 <= status_code:
+                decoded_line = chunk.get('stream').decode('utf-8')
+                err = json.loads(decoded_line)
+                err['statusCode'] = status_code
+                raise TeaException({
+                    'code': f"{err.get('Code')}",
+                    'message': f"code: {status_code}, {err.get('Message')} request id: {err.get('RequestId')}",
+                    'data': err,
+                    'description': f"{err.get('Description')}",
+                    'accessDeniedDetail': err.get('AccessDeniedDetail')
+                })
+            for line in chunk.get('stream').splitlines():
+                decoded_line = line.decode('utf-8')
+                if not decoded_line.strip() or decoded_line.startswith(':'):
+                    continue
+                match = sse_line_pattern.match(decoded_line)
+                if match is not None:
+                    name = match.group('name')
+                    value = match.group('value')
+                    if name == 'data':
+                        if event.data:
+                            event.data = '%s\n%s' % (event.data, value)
+                        else:
+                            event.data = value
+                    elif name == 'event':
+                        event.event = value
+                    elif name == 'id':
+                        event.id = value
+                    elif name == 'retry':
+                        event.retry = int(value)
+            yield {'status_code': status_code, 'headers': headers, 'event': event}
