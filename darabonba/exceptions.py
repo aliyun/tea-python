@@ -1,7 +1,7 @@
-from darabonba.request import TeaRequest
+from darabonba.request import DaraRequest
 
 
-class TeaException(Exception):
+class DaraException(Exception):
     def __init__(self, dic):
         self.code = dic.get("code")
         self.message = dic.get("message")
@@ -33,15 +33,15 @@ class RetryError(Exception):
         self.data = None
 
 
-class UnretryableException(TeaException):
+class UnretryableException(DaraException):
     def __init__(
             self,
-            request: TeaRequest,
+            request: DaraRequest,
             ex: Exception
     ):
         self.last_request = request
         self.inner_exception = ex
-        if isinstance(ex, TeaException):
+        if isinstance(ex, DaraException):
             super().__init__({
                 'code': ex.code,
                 'message': ex.message,

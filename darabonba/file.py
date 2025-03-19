@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from darabonba.date import Date
 
 class File:
     def __init__(self, path: str):
@@ -15,11 +16,13 @@ class File:
     def length(self) -> int:
         return os.path.getsize(self._path)
 
-    def createTime(self) -> datetime:
-        return datetime.fromtimestamp(os.path.getctime(self._path))
+    def create_time(self) -> Date:
+        ctime = os.path.getctime(self._path)
+        return Date(datetime.fromtimestamp(ctime).isoformat())
 
-    def modifyTime(self) -> datetime:
-        return datetime.fromtimestamp(os.path.getmtime(self._path))
+    def modify_time(self) -> Date:
+        mtime = os.path.getmtime(self._path)
+        return Date(datetime.fromtimestamp(mtime).isoformat())
 
     def read(self, size: int) -> bytes:
         with open(self._path, 'rb') as f:

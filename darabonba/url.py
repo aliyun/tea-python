@@ -10,14 +10,14 @@ PORT_MAP = {
     "wss": "443"
 }
 
-class URL:
+class Url:
     def __init__(self, url_str):
         self._url = urlparse(url_str)
     
     @staticmethod
     def new_url(url_str):
         try:
-            return URL(url_str)
+            return Url(url_str)
         except Exception as e:
             raise e
     
@@ -61,7 +61,7 @@ class URL:
     
     @staticmethod
     def parse(url_str):
-        return URL.new_url(url_str)
+        return Url.new_url(url_str)
     
     @staticmethod
     def url_encode(url_str):

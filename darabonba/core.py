@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import logging
+import io
 import os
 import ssl
 import time
@@ -12,13 +13,13 @@ from requests import status_codes, adapters, PreparedRequest
 
 from darabonba.exceptions import RequiredArgumentException, RetryError
 from darabonba.model import TeaModel
-from darabonba.request import TeaRequest
-from darabonba.response import TeaResponse
+from darabonba.request import DaraRequest
+from darabonba.response import DaraResponse
 from darabonba.utils.stream import BaseStream
 from requests import status_codes, adapters, PreparedRequest, Response
 from darabonba.event import Event
 import json
-from darabonba.exceptions import TeaException
+from darabonba.exceptions import DaraException
 
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
@@ -32,16 +33,16 @@ ch = logging.StreamHandler()
 logger.addHandler(ch)
 
 
-class TeaCore:
+class DaraCore:
     http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
     https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
 
     @staticmethod
     def get_adapter(prefix):
         if prefix.upper() == 'HTTP':
-            return TeaCore.http_adapter
+            return DaraCore.http_adapter
         else:
-            return TeaCore.https_adapter
+            return DaraCore.https_adapter
 
     @staticmethod
     def _prepare_http_debug(request, symbol):
@@ -55,12 +56,12 @@ class TeaCore:
         # logger the request
         url = urlparse(request.url)
         request_base = f'\n> {request.method.upper()} {url.path + url.query} HTTP/1.1'
-        logger.debug(request_base + TeaCore._prepare_http_debug(request, '>'))
+        logger.debug(request_base + DaraCore._prepare_http_debug(request, '>'))
 
         # logger the response
         response_base = f'\n< HTTP/1.1 {response.status_code}' \
                         f' {status_codes._codes.get(response.status_code)[0].upper()}'
-        logger.debug(response_base + TeaCore._prepare_http_debug(response, '<'))
+        logger.debug(response_base + DaraCore._prepare_http_debug(response, '<'))
 
     @staticmethod
     def compose_url(request):
@@ -99,12 +100,12 @@ class TeaCore:
 
     @staticmethod
     async def async_do_action(
-            request: TeaRequest,
+            request: DaraRequest,
             runtime_option=None
-    ) -> TeaResponse:
+    ) -> DaraResponse:
         runtime_option = runtime_option or {}
 
-        url = TeaCore.compose_url(request)
+        url = DaraCore.compose_url(request)
         verify = not runtime_option.get('ignoreSSL', False)
 
         timeout = runtime_option.get('timeout')
@@ -156,7 +157,7 @@ class TeaCore:
                                      ssl=verify,
                                      proxy=proxy,
                                      timeout=timeout) as response:
-                    tea_resp = TeaResponse()
+                    tea_resp = DaraResponse()
                     tea_resp.body = await response.read()
                     tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
                     tea_resp.status_code = response.status
@@ -168,10 +169,10 @@ class TeaCore:
 
     @staticmethod
     def do_action(
-            request: TeaRequest,
+            request: DaraRequest,
             runtime_option=None
-    ) -> TeaResponse:
-        url = TeaCore.compose_url(request)
+    ) -> DaraResponse:
+        url = DaraCore.compose_url(request)
 
         runtime_option = runtime_option or {}
 
@@ -214,7 +215,7 @@ class TeaCore:
         if no_proxy:
             proxies['no_proxy'] = no_proxy
 
-        adapter = TeaCore.get_adapter(request.protocol)
+        adapter = DaraCore.get_adapter(request.protocol)
         try:
             resp = adapter.send(
                 p,
@@ -228,9 +229,9 @@ class TeaCore:
 
         debug = runtime_option.get('debug') or os.getenv('DEBUG')
         if debug and debug.lower() == 'sdk':
-            TeaCore._do_http_debug(p, resp)
+            DaraCore._do_http_debug(p, resp)
 
-        response = TeaResponse()
+        response = DaraResponse()
         response.status_message = resp.reason
         response.status_code = resp.status_code
         response.headers = {k.lower(): v for k, v in resp.headers.items()}
@@ -330,7 +331,7 @@ class TeaCore:
                 decoded_line = chunk.get('stream').decode('utf-8')
                 err = json.loads(decoded_line)
                 err['statusCode'] = status_code
-                raise TeaException({
+                raise DaraException({
                     'code': f"{err.get('Code')}",
                     'message': f"code: {status_code}, {err.get('Message')} request id: {err.get('RequestId')}",
                     'data': err,
@@ -359,6 +360,48 @@ class TeaCore:
             yield {'status_code': status_code, 'headers': headers, 'event': event}
 
     @staticmethod
+    def is_null(value) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str) and value.strip() == '':
+            return True
+        if isinstance(value, (list, tuple, dict, set)) and len(value) == 0:
+            return True
+        return False
+    
+    @staticmethod
+    def to_readable_stream(data):
+        if isinstance(data, str):
+            # 如果输入是字符串，使用 io.StringIO
+            return io.StringIO(data)
+        elif isinstance(data, bytes):
+            # 如果输入是字节数据，使用 io.BytesIO
+            return io.BytesIO(data)
+        else:
+            raise TypeError("Input data must be of type str or bytes")
+
+    @staticmethod
+    def to_map(model: Optional[TeaModel]) -> Dict[str, Any]:
+        if isinstance(model, TeaModel):
+            return model.to_map()
+        else:
+            return dict()
+
+    @staticmethod
+    def from_map(
+            model: TeaModel,
+            dic: Dict[str, Any]
+    ) -> TeaModel:
+        if isinstance(model, TeaModel):
+            try:
+                return model.from_map(dic)
+            except Exception:
+                model._map = dic
+                return model
+        else:
+            return model
+
+    @staticmethod
     def read_as_sse(
             stream: Response
     ):
@@ -370,7 +413,7 @@ class TeaCore:
                 decoded_line = chunk.get('stream').decode('utf-8')
                 err = json.loads(decoded_line)
                 err['statusCode'] = status_code
-                raise TeaException({
+                raise DaraException({
                     'code': f"{err.get('Code')}",
                     'message': f"code: {status_code}, {err.get('Message')} request id: {err.get('RequestId')}",
                     'data': err,

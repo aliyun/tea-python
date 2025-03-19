@@ -1,10 +1,10 @@
 import unittest
 
-from darabonba.request import TeaRequest
+from darabonba.request import DaraRequest
 
-class TestTeaRequest(unittest.TestCase):
+class TestDaraRequest(unittest.TestCase):
     def test_init(self):
-        request = TeaRequest()
+        request = DaraRequest()
         self.assertEqual({}, request.query)
         self.assertEqual({}, request.headers)
         self.assertEqual('http', request.protocol)

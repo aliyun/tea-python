@@ -1,9 +1,9 @@
 from unittest import TestCase
-from darabonba.exceptions import RetryError, UnretryableException, TeaException, RequiredArgumentException
-from darabonba.request import TeaRequest
+from darabonba.exceptions import RetryError, UnretryableException, DaraException, RequiredArgumentException
+from darabonba.request import DaraRequest
 
 
-class TestTeaException(TestCase):
+class TestDaraException(TestCase):
     def test_retry_error(self):
         try:
             raise RetryError('test_retry_error')
@@ -11,7 +11,7 @@ class TestTeaException(TestCase):
             self.assertEqual('test_retry_error', e.message)
 
     def test_unretryable_exception(self):
-        request = TeaRequest()
+        request = DaraRequest()
         ex = RetryError("test exception")
         try:
             raise UnretryableException(request, ex)
@@ -20,7 +20,7 @@ class TestTeaException(TestCase):
             self.assertIsNotNone(e.last_request)
             self.assertEqual("test exception", str(e.inner_exception))
 
-        e = TeaException({
+        e = DaraException({
             'code': 'error code',
             'message': 'error message',
             'data': 'data',
@@ -43,8 +43,8 @@ class TestTeaException(TestCase):
                    'NoPermissionType': 'ImplicitDeny'
                }}
         try:
-            raise TeaException(dic)
-        except TeaException as e:
+            raise DaraException(dic)
+        except DaraException as e:
             self.assertIsNotNone(e)
             self.assertEqual("200", e.code)
             self.assertEqual("message", e.message)

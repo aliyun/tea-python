@@ -33,13 +33,13 @@ class TestFile(unittest.TestCase):
 
     def test_create_time(self):
         file = File(self.file_path)
-        create_time = file.createTime()
-        self.assertTrue(isinstance(create_time, datetime))
+        create_time = file.create_time()
+        self.assertTrue(isinstance(create_time.date, datetime))
 
     def test_modify_time(self):
         file = File(self.file_path)
-        modify_time = file.modifyTime()
-        self.assertTrue(isinstance(modify_time, datetime))
+        modify_time = file.modify_time()
+        self.assertTrue(isinstance(modify_time.date, datetime))
 
     def test_read(self):
         file = File(self.file_path)

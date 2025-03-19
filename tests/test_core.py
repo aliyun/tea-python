@@ -1,7 +1,5 @@
 import asyncio
 
-from unittest import mock
-
 
 import threading
 import time
@@ -9,10 +7,10 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
-from darabonba.core import TeaCore
-from darabonba.exceptions import RetryError, TeaException
+from darabonba.core import DaraCore
+from darabonba.exceptions import RetryError, DaraException
 from darabonba.model import TeaModel
-from darabonba.request import TeaRequest
+from darabonba.request import DaraRequest
 from darabonba.utils.stream import BaseStream
 
 class Request(BaseHTTPRequestHandler):
@@ -136,55 +134,55 @@ class TestCore(unittest.TestCase):
         server.start()
 
     def test_compose_url(self):
-        request = TeaRequest()
+        request = DaraRequest()
         try:
-            TeaCore.compose_url(request)
+            DaraCore.compose_url(request)
         except Exception as e:
             self.assertEqual('"endpoint" is required.', str(e))
 
         request.headers['host'] = "fake.domain.com"
         self.assertEqual("http://fake.domain.com",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.headers['host'] = "http://fake.domain.com"
         self.assertEqual("http://fake.domain.com",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.port = 8080
         self.assertEqual("http://fake.domain.com:8080",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.pathname = "/index.html"
         self.assertEqual("http://fake.domain.com:8080/index.html",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.query["foo"] = ""
         self.assertEqual("http://fake.domain.com:8080/index.html?foo=",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.query["foo"] = "bar"
         self.assertEqual("http://fake.domain.com:8080/index.html?foo=bar",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.pathname = "/index.html?a=b"
         self.assertEqual("http://fake.domain.com:8080/index.html?a=b&foo=bar",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.pathname = "/index.html?a=b&"
         self.assertEqual("http://fake.domain.com:8080/index.html?a=b&foo=bar",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
         request.query["fake"] = None
         self.assertEqual("http://fake.domain.com:8080/index.html?a=b&foo=bar",
-                         TeaCore.compose_url(request))
+                         DaraCore.compose_url(request))
 
     def test_do_action(self):
-        request = TeaRequest()
+        request = DaraRequest()
         request.headers['host'] = "www.alibabacloud.com"
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
         option = None
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
@@ -193,7 +191,7 @@ class TestCore(unittest.TestCase):
             "readTimeout": None,
             "connectTimeout": None,
         }
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
@@ -215,7 +213,7 @@ class TestCore(unittest.TestCase):
             'debug': 'sdk',
             "ignoreSSL": None
         }
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
@@ -223,17 +221,17 @@ class TestCore(unittest.TestCase):
         request.method = "POST"
         request.protocol = "http"
         request.body = "{'test': [{'id': 'id', 'name': '中文'}]}"
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}', bytes.decode(resp.body))
 
         request.body = "{'test': [{'id': 'id', 'name': '\u4e2d\u6587'}]}"
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}', bytes.decode(resp.body))
 
         request.body = b"{'test': [{'id': 'id', 'name': '\xe4\xb8\xad\xe6\x96\x87\'}]}"
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertEqual('{"result": "{\'test\': [{\'id\': \'id\', \'name\': \'中文\'}]}"}', bytes.decode(resp.body))
 
@@ -241,20 +239,20 @@ class TestCore(unittest.TestCase):
         option['httpsProxy'] = '127.0.0.1'
         option['noProxy'] = '127.0.0.1'
         try:
-            TeaCore.do_action(request, option)
+            DaraCore.do_action(request, option)
             assert False
         except Exception as e:
             self.assertIsInstance(e, RetryError)
 
     def test_async_do_action(self):
-        request = TeaRequest()
+        request = DaraRequest()
         request.headers['host'] = "www.alibabacloud.com"
         request.pathname = "/s/zh"
         request.query["k"] = "ecs"
         option = None
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(
-            TeaCore.async_do_action(request, option)
+            DaraCore.async_do_action(request, option)
         )
         loop.run_until_complete(task)
         response = task.result()
@@ -268,7 +266,7 @@ class TestCore(unittest.TestCase):
         }
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(
-            TeaCore.async_do_action(request, option)
+            DaraCore.async_do_action(request, option)
         )
         loop.run_until_complete(task)
         response = task.result()
@@ -294,7 +292,7 @@ class TestCore(unittest.TestCase):
         }
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(
-            TeaCore.async_do_action(request, option)
+            DaraCore.async_do_action(request, option)
         )
         loop.run_until_complete(task)
         response = task.result()
@@ -306,7 +304,7 @@ class TestCore(unittest.TestCase):
         request.protocol = "http"
         request.body = "{'test': [{'id': 'id', 'name': '中文'}]}"
         task = asyncio.ensure_future(
-            TeaCore.async_do_action(request, option)
+            DaraCore.async_do_action(request, option)
         )
         loop.run_until_complete(task)
         response = task.result()
@@ -316,7 +314,7 @@ class TestCore(unittest.TestCase):
 
         request.body = "{'test': [{'id': 'id', 'name': '\u4e2d\u6587'}]}"
         task = asyncio.ensure_future(
-            TeaCore.async_do_action(request, option)
+            DaraCore.async_do_action(request, option)
         )
         loop.run_until_complete(task)
         response = task.result()
@@ -326,7 +324,7 @@ class TestCore(unittest.TestCase):
 
         request.body = b"{'test': [{'id': 'id', 'name': '\xe4\xb8\xad\xe6\x96\x87\'}]}"
         task = asyncio.ensure_future(
-            TeaCore.async_do_action(request, option)
+            DaraCore.async_do_action(request, option)
         )
         loop.run_until_complete(task)
         response = task.result()
@@ -337,7 +335,7 @@ class TestCore(unittest.TestCase):
         request.protocol = 'http'
         option['httpProxy'] = 'http://127.0.0.1'
         try:
-            loop.run_until_complete(TeaCore.async_do_action(request, option))
+            loop.run_until_complete(DaraCore.async_do_action(request, option))
             assert False
         except Exception as e:
             self.assertIsInstance(e, RetryError)
@@ -345,44 +343,44 @@ class TestCore(unittest.TestCase):
     def test_get_response_body(self):
         moc_resp = mock.Mock()
         moc_resp.content = "test".encode("utf-8")
-        self.assertAlmostEqual("test", TeaCore.get_response_body(moc_resp))
+        self.assertAlmostEqual("test", DaraCore.get_response_body(moc_resp))
 
     def test_allow_retry(self):
-        self.assertTrue(TeaCore.allow_retry(None, 0))
+        self.assertTrue(DaraCore.allow_retry(None, 0))
         dic = {}
-        self.assertTrue(TeaCore.allow_retry(dic, 0))
+        self.assertTrue(DaraCore.allow_retry(dic, 0))
         dic["retryable"] = True
         dic["maxAttempts"] = 3
-        self.assertTrue(TeaCore.allow_retry(dic, 0))
-        self.assertFalse(TeaCore.allow_retry(dic, 4))
+        self.assertTrue(DaraCore.allow_retry(dic, 0))
+        self.assertFalse(DaraCore.allow_retry(dic, 4))
         dic["maxAttempts"] = None
-        self.assertFalse(TeaCore.allow_retry(dic, 1))
+        self.assertFalse(DaraCore.allow_retry(dic, 1))
         dic["retryable"] = False
         dic["maxAttempts"] = 3
-        self.assertTrue(TeaCore.allow_retry(dic, 0))
-        self.assertFalse(TeaCore.allow_retry(dic, 1))
+        self.assertTrue(DaraCore.allow_retry(dic, 0))
+        self.assertFalse(DaraCore.allow_retry(dic, 1))
 
     def test_get_backoff_time(self):
         dic = {}
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
         dic["policy"] = None
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
         dic["policy"] = ""
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
         dic["policy"] = "no"
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
         dic["policy"] = "yes"
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
         dic["period"] = None
-        self.assertEqual(0, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
         dic["period"] = -1
-        self.assertEqual(1, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(1, DaraCore.get_backoff_time(dic, 1))
         dic["period"] = 1000
-        self.assertEqual(1000, TeaCore.get_backoff_time(dic, 1))
+        self.assertEqual(1000, DaraCore.get_backoff_time(dic, 1))
 
     def test_sleep(self):
         ts_before = int(round(time.time() * 1000))
-        TeaCore.sleep(1000)
+        DaraCore.sleep(1000)
         ts_after = int(round(time.time() * 1000))
         ts_subtract = ts_after - ts_before
         self.assertTrue(1000 <= ts_subtract < 1100)
@@ -391,7 +389,7 @@ class TestCore(unittest.TestCase):
         ts_before = int(round(time.time() * 1000))
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(
-            TeaCore.sleep_async(1000)
+            DaraCore.sleep_async(1000)
         )
         loop.run_until_complete(task)
         ts_after = int(round(time.time() * 1000))
@@ -399,19 +397,19 @@ class TestCore(unittest.TestCase):
         self.assertTrue(1000 <= ts_subtract < 1100)
 
     def test_is_retryable(self):
-        self.assertFalse(TeaCore.is_retryable("test"))
-        ex = TeaException({})
-        self.assertFalse(TeaCore.is_retryable(ex))
+        self.assertFalse(DaraCore.is_retryable("test"))
+        ex = DaraException({})
+        self.assertFalse(DaraCore.is_retryable(ex))
         ex = RetryError('error')
-        self.assertTrue(TeaCore.is_retryable(ex))
+        self.assertTrue(DaraCore.is_retryable(ex))
 
     def test_bytes_readable(self):
         body = "test".encode('utf-8')
-        self.assertIsNotNone(TeaCore.bytes_readable(body))
+        self.assertIsNotNone(DaraCore.bytes_readable(body))
 
     def test_merge(self):
         model = BaseUserResponse()
-        dic = TeaCore.merge(model, {'k1': 'test'})
+        dic = DaraCore.merge(model, {'k1': 'test'})
         self.assertEqual(
             {
                 'avatar': None,
@@ -435,15 +433,15 @@ class TestCore(unittest.TestCase):
         model = BaseUserResponse()
         model.phone = '139xxx'
         model.domainId = 'domainId'
-        m = TeaCore.to_map(model)
+        m = DaraCore.to_map(model)
         self.assertEqual('139xxx', m['phone'])
         self.assertEqual('domainId', m['domainId'])
-        m = TeaCore.to_map(None)
+        m = DaraCore.to_map(None)
         self.assertEqual({}, m)
 
         model = BaseUserResponse()
         model._map = {'phone': '139xxx'}
-        m = TeaCore.to_map(model)
+        m = DaraCore.to_map(model)
         self.assertEqual({'phone': '139xxx'}, m)
 
     def test_from_map(self):
@@ -454,7 +452,7 @@ class TestCore(unittest.TestCase):
             'phone': '138',
             'domainId': 'test'
         }
-        model1 = TeaCore.from_map(model, m)
+        model1 = DaraCore.from_map(model, m)
         self.assertEqual('138', model1.phone)
         self.assertEqual('test', model1.domainId)
 
@@ -463,17 +461,17 @@ class TestCore(unittest.TestCase):
             'domainId': 'test',
             'array': 123
         }
-        model2 = TeaCore.from_map(model, m)
+        model2 = DaraCore.from_map(model, m)
         self.assertEqual([], model2.array)
         self.assertEqual(123, model2._map['array'])
 
     def test_async_stream_upload(self):
-        request = TeaRequest()
+        request = DaraRequest()
         request.method = 'POST'
         request.protocol = 'http'
         request.headers['host'] = "127.0.0.1:8888"
         loop = asyncio.get_event_loop()
-        task = asyncio.ensure_future(TeaCore.async_do_action(request))
+        task = asyncio.ensure_future(DaraCore.async_do_action(request))
         f = TeaStream()
         request.body = f
         loop.run_until_complete(task)

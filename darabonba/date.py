@@ -7,7 +7,8 @@ class Date:
             "%Y-%m-%d %H:%M:%S.%f %z %Z",
             "%Y-%m-%dT%H:%M:%S%z",
             "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%dT%H:%M:%S"
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S.%f", 
         ]
         
         self.date = None
