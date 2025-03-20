@@ -49,7 +49,7 @@
 * Improve instance check of stream.
 
 ### 2021-03-17 Version 0.2.6
-* Improve TeaModel to avoid serialization exception.
+* Improve DaraModel to avoid serialization exception.
 
 ### 2021-03-15 Version 0.2.5
 * The `do_action` method uses a connection pool.
@@ -125,7 +125,7 @@
 * Supported https proxy
 
 ### 2020-05-21 Version 0.0.3
-* Support merge TeaModel
+* Support merge DaraModel
 * Add BaseStream class
 
 ### 2020-05-15 Version 0.0.2

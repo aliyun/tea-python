@@ -1,5 +1,5 @@
 from xml.etree import ElementTree
-from Tea.model import TeaModel
+from Tea.model import DaraModel
 from collections import defaultdict
 
 class XML:
@@ -83,7 +83,7 @@ class XML:
             return
 
         dic = {}
-        if isinstance(body, TeaModel):
+        if isinstance(body, DaraModel):
             dic = body.to_map()
         elif isinstance(body, dict):
             dic = body

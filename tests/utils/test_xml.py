@@ -1,11 +1,11 @@
 import unittest
 
 from darabonba.utils.xml import XML as xml
-from Tea.model import TeaModel
+from Tea.model import DaraModel
 
 
 class TestClient(unittest.TestCase):
-    class ListAllMyBucketsResult(TeaModel):
+    class ListAllMyBucketsResult(DaraModel):
         def __init__(self, buckets=None, owner=None, test_str_list=None, test_num=None, test_bool=None, test_null=None):
             self.buckets = buckets
             self.owner = owner
@@ -26,7 +26,7 @@ class TestClient(unittest.TestCase):
             result['test_null'] = self.test_null
             return result
 
-    class Owner(TeaModel):
+    class Owner(DaraModel):
         def __init__(self, id=None, display_name=None):
             self.id = id
             self.display_name = display_name
@@ -37,7 +37,7 @@ class TestClient(unittest.TestCase):
             result['display_name'] = self.display_name
             return result
 
-    class Bucket(TeaModel):
+    class Bucket(DaraModel):
         def __init__(self, creation_date=None, extranet_endpoint=None):
             self.creation_date = creation_date
             self.extranet_endpoint = extranet_endpoint
@@ -48,7 +48,7 @@ class TestClient(unittest.TestCase):
             result['extranet_endpoint'] = self.extranet_endpoint
             return result
 
-    class Buckets(TeaModel):
+    class Buckets(DaraModel):
         def __init__(self):
             self.bucket = []
 
@@ -57,7 +57,7 @@ class TestClient(unittest.TestCase):
             result['bucket'] = self.bucket
             return result
 
-    class ToBodyModel(TeaModel):
+    class ToBodyModel(DaraModel):
         def __init__(self, ListAllMyBucketsResult=None):
             self.listAllMyBucketsResult = ListAllMyBucketsResult
 

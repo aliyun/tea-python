@@ -12,7 +12,7 @@ import certifi
 from requests import status_codes, adapters, PreparedRequest
 
 from darabonba.exceptions import RequiredArgumentException, RetryError
-from darabonba.model import TeaModel
+from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
 from darabonba.response import DaraResponse
 from darabonba.utils.stream import BaseStream
@@ -294,23 +294,23 @@ class DaraCore:
         for item in dic_list:
             if isinstance(item, dict):
                 dic_result.update(item)
-            elif isinstance(item, TeaModel):
+            elif isinstance(item, DaraModel):
                 dic_result.update(item.to_map())
         return dic_result
 
     @staticmethod
-    def to_map(model: Optional[TeaModel]) -> Dict[str, Any]:
-        if isinstance(model, TeaModel):
+    def to_map(model: Optional[DaraModel]) -> Dict[str, Any]:
+        if isinstance(model, DaraModel):
             return model.to_map()
         else:
             return dict()
 
     @staticmethod
     def from_map(
-            model: TeaModel,
+            model: DaraModel,
             dic: Dict[str, Any]
-    ) -> TeaModel:
-        if isinstance(model, TeaModel):
+    ) -> DaraModel:
+        if isinstance(model, DaraModel):
             try:
                 return model.from_map(dic)
             except Exception:
@@ -381,18 +381,18 @@ class DaraCore:
             raise TypeError("Input data must be of type str or bytes")
 
     @staticmethod
-    def to_map(model: Optional[TeaModel]) -> Dict[str, Any]:
-        if isinstance(model, TeaModel):
+    def to_map(model: Optional[DaraModel]) -> Dict[str, Any]:
+        if isinstance(model, DaraModel):
             return model.to_map()
         else:
             return dict()
 
     @staticmethod
     def from_map(
-            model: TeaModel,
+            model: DaraModel,
             dic: Dict[str, Any]
-    ) -> TeaModel:
-        if isinstance(model, TeaModel):
+    ) -> DaraModel:
+        if isinstance(model, DaraModel):
             try:
                 return model.from_map(dic)
             except Exception:

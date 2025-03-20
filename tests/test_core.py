@@ -9,7 +9,7 @@ from unittest import mock
 
 from darabonba.core import DaraCore
 from darabonba.exceptions import RetryError, DaraException
-from darabonba.model import TeaModel
+from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
 from darabonba.utils.stream import BaseStream
 
@@ -46,7 +46,7 @@ class TeaStream(BaseStream):
             raise StopIteration
 
 
-class BaseUserResponse(TeaModel):
+class BaseUserResponse(DaraModel):
     def __init__(self):
         self.avatar = None
         self.createdAt = None
@@ -105,7 +105,7 @@ class BaseUserResponse(TeaModel):
                 self.array.append(i)
         return self
 
-class ListUserResponse(TeaModel):
+class ListUserResponse(DaraModel):
     def __init__(self):
         super().__init__()
         self.items = None

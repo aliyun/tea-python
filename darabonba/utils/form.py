@@ -3,7 +3,7 @@ import sys
 from _io import BytesIO
 import random
 from darabonba.utils.stream import BaseStream, READABLE
-from darabonba.core import TeaModel
+from darabonba.core import DaraModel
 from urllib.parse import urlencode
 
 class Form:
@@ -183,7 +183,7 @@ class FileFormInputStream(BaseStream):
         self._build_str_forms()
         self.refresh_cursor()
 
-class FileField(TeaModel):
+class FileField(DaraModel):
     def __init__(self, filename=None, content_type=None, content=None):
         self.filename = filename
         self.content_type = content_type

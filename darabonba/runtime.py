@@ -1,7 +1,7 @@
-from darabonba.core import TeaModel
+from darabonba.core import DaraModel
 from typing import Dict
 
-class ExtendsParameters(TeaModel):
+class ExtendsParameters(DaraModel):
     def __init__(
         self,
         headers: Dict[str, str] = None,
@@ -33,7 +33,7 @@ class ExtendsParameters(TeaModel):
             self.queries = m.get('queries')
         return self
 
-class RuntimeOptions(TeaModel):
+class RuntimeOptions(DaraModel):
     """
     The common runtime options model
     """
