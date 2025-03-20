@@ -1,8 +1,9 @@
 import re
 from darabonba.exceptions import RequiredArgumentException, ValidateException
+from Tea.model import TeaModel
 
 
-class DaraModel:
+class DaraModel(TeaModel):
     _map = None
 
     def validate(self):

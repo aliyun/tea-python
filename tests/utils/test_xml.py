@@ -1,7 +1,7 @@
 import unittest
 
 from darabonba.utils.xml import XML as xml
-from Tea.model import DaraModel
+from darabonba.model import DaraModel
 
 
 class TestClient(unittest.TestCase):
