@@ -88,6 +88,31 @@ class RetryOptions:
         self.retryable = options.get('retryable', True)
         self.retry_condition = [RetryCondition(condition) for condition in options.get('retryCondition', [])]
         self.no_retry_condition = [RetryCondition(condition) for condition in options.get('noRetryCondition', [])]
+    
+    def validate(self) -> bool:
+        if not isinstance(self.retryable, bool):
+            raise ValueError("retryable must be a boolean.")
+        if not isinstance(self.retry_condition, list) or not all(isinstance(cond, RetryCondition) for cond in self.retry_condition):
+            raise ValueError("retryCondition must be a list of RetryCondition.")
+        if not isinstance(self.no_retry_condition, list) or not all(isinstance(cond, RetryCondition) for cond in self.no_retry_condition):
+            raise ValueError("noRetryCondition must be a list of RetryCondition.")
+        return True
+
+    def to_map(self) -> Dict[str, Any]:
+        return {
+            'retryable': self.retryable,
+            'retryCondition': [cond.to_dict() for cond in self.retry_condition],
+            'noRetryCondition': [cond.to_dict() for cond in self.no_retry_condition]
+        }
+    
+    @staticmethod
+    def from_map(data: Dict[str, Any]) -> 'RetryOptions':
+        options = {
+            'retryable': data.get('retryable', True),
+            'retryCondition': [RetryCondition.from_dict(cond) for cond in data.get('retryCondition', [])],
+            'noRetryCondition': [RetryCondition.from_dict(cond) for cond in data.get('noRetryCondition', [])]
+        }
+        return RetryOptions(options)
 
 class RetryPolicyContext:
     def __init__(self, options: Dict[str, Any]):

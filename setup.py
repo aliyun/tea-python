@@ -43,12 +43,12 @@ else:
     install_requires.remove('urllib3<2.0.7')
     install_requires.append('urllib3<2.0.0')
 
-PACKAGE = "darabonba"
+PACKAGE = "Tea"
 DESCRIPTION = "The tea module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
 AUTHOR_EMAIL = "alibaba-cloud-sdk-dev-team@list.alibaba-inc.com"
 URL = "https://github.com/aliyun/tea-python"
-VERSION = __import__(PACKAGE).__version__
+VERSION = "0.5.0"
 
 with open("README.md", encoding="utf-8") as fp:
     LONG_DESCRIPTION = fp.read()

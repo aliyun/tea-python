@@ -1,5 +1,6 @@
 import unittest
 from darabonba.policy.retry import (
+    RetryCondition,
     BackoffPolicy,
     FixedBackoffPolicy,
     RandomBackoffPolicy,
@@ -33,17 +34,17 @@ class TestRetryPolicies(unittest.TestCase):
     def test_exponential_backoff_policy(self):
         option = {'policy': 'Exponential', 'period': 100, 'cap': 1000}
         backoff_policy = ExponentialBackoffPolicy(option)
-        self.retry_context.retries_attempted = 3  # Simulate 3 attempts
+        self.retry_context.retries_attempted = 3 
         delay = backoff_policy.get_delay_time(self.retry_context)
         self.assertLessEqual(delay, 1000)
 
     def test_should_retry(self):
         options = RetryOptions({
             'retryable': True,
-            'retryCondition': [{
+            'retryCondition': [RetryCondition({
                 'maxAttempts': 5,
                 'exception': ['ExceptionA'],
-            }]
+            })]
         })
         self.retry_context.exception = type('Exception', (object,), {'name': 'ExceptionA'})
         self.assertTrue(should_retry(options, self.retry_context))
@@ -53,12 +54,12 @@ class TestRetryPolicies(unittest.TestCase):
 
     def test_get_backoff_delay(self):
         options = RetryOptions({
-            'retryCondition': [{
+            'retryCondition': [RetryCondition({
                 'maxAttempts': 5,
                 'backoff': {'policy': 'Fixed', 'period': 200},
                 'exception': ['ExceptionA'],
                 'maxDelay': 5000
-            }]
+            })]
         })
         self.retry_context.exception = type('Exception', (object,), {'name': 'ExceptionA'})
         

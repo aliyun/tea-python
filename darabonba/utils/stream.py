@@ -79,7 +79,7 @@ class Stream:
     def read_as_sse(stream):
         event = Event()
         for line_bytes in stream:
-            line = line_bytes.decode('utf-8')  # Decode bytes to string
+            line = line_bytes.decode('utf-8')
             if not line.strip() or line.startswith(':'):
                 continue
             match = sse_line_pattern.match(line)
@@ -102,7 +102,7 @@ class Stream:
     async def read_as_sse_async(stream):
         event = Event()
         async for line_bytes in stream:
-            line = line_bytes.decode('utf-8')  # Decode bytes to string
+            line = line_bytes.decode('utf-8')
             if not line.strip() or line.startswith(':'):
                 continue
             match = sse_line_pattern.match(line)
