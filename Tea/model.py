@@ -2,7 +2,7 @@ import re
 from .exceptions import RequiredArgumentException, ValidateException
 
 
-class DaraModel:
+class TeaModel:
     _map = None
 
     def validate(self):

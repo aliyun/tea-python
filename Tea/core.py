@@ -12,7 +12,7 @@ import certifi
 from requests import Session, PreparedRequest, adapters, status_codes
 
 from Tea.exceptions import RequiredArgumentException, RetryError
-from Tea.model import DaraModel
+from Tea.model import TeaModel
 from Tea.request import TeaRequest
 from Tea.response import TeaResponse
 from Tea.stream import BaseStream
@@ -350,23 +350,23 @@ class TeaCore:
         for item in dic_list:
             if isinstance(item, dict):
                 dic_result.update(item)
-            elif isinstance(item, DaraModel):
+            elif isinstance(item, TeaModel):
                 dic_result.update(item.to_map())
         return dic_result
 
     @staticmethod
-    def to_map(model: Optional[DaraModel]) -> Dict[str, Any]:
-        if isinstance(model, DaraModel):
+    def to_map(model: Optional[TeaModel]) -> Dict[str, Any]:
+        if isinstance(model, TeaModel):
             return model.to_map()
         else:
             return dict()
 
     @staticmethod
     def from_map(
-            model: DaraModel,
+            model: TeaModel,
             dic: Dict[str, Any]
-    ) -> DaraModel:
-        if isinstance(model, DaraModel):
+    ) -> TeaModel:
+        if isinstance(model, TeaModel):
             try:
                 return model.from_map(dic)
             except Exception:
