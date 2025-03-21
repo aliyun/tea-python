@@ -115,12 +115,17 @@ class RetryOptions:
         return RetryOptions(options)
 
 class RetryPolicyContext:
-    def __init__(self, options: Dict[str, Any]):
-        self.key = options.get('key')
-        self.retries_attempted = options.get('retriesAttempted', 0)
-        self.http_request = options.get('httpRequest', None)
-        self.http_response = options.get('httpResponse', None)
-        self.exception = options.get('exception', None)
+    def __init__(self, 
+                 key: str = None, 
+                 retries_attempted: int = 0, 
+                 http_request: Any = None, 
+                 http_response: Any = None, 
+                 exception: Exception = None):
+        self.key = key
+        self.retries_attempted = retries_attempted
+        self.http_request = http_request
+        self.http_response = http_response
+        self.exception = exception
 
 def should_retry(options: RetryOptions, ctx: RetryPolicyContext) -> bool:
     if ctx.retries_attempted == 0:

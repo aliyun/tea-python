@@ -13,6 +13,8 @@ class Bytes:
             if isinstance(data, str):
                 return bytes.fromhex(data)
         elif encoding == 'utf-8':
+            if isinstance(data, str):
+                return data.encode('utf-8')
             if isinstance(data, bytes):
                 return data
         elif encoding == 'utf-16':

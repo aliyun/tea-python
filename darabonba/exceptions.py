@@ -1,4 +1,7 @@
 from darabonba.request import DaraRequest
+from Tea.exceptions import UnretryableException as TeaUnretryableException
+from darabonba.policy.retry import RetryPolicyContext
+from typing import Any, Optional
 
 
 class DaraException(Exception):
@@ -14,6 +17,26 @@ class DaraException(Exception):
     def __str__(self):
         return f'Error: {self.code} {self.message} Response: {self.data}'
 
+class ResponseException(DaraException):
+    def __init__(self, 
+                 code: Optional[str] = None,
+                 status_code: Optional[int] = None,
+                 retry_after: Optional[int] = None,
+                 data: Optional[dict] = None,
+                 access_denied_detail: Optional[Any] = None,
+                 description: Optional[str] = None):
+
+        super().__init__(description)
+        
+        self.name = 'ResponseException'
+        self.code = code
+        self.status_code = status_code
+        self.retry_after = retry_after
+        self.data = data or {}
+        self.access_denied_detail = access_denied_detail
+
+        if isinstance(self.data, dict) and 'statusCode' in self.data:
+            self.status_code = int(self.data['statusCode'])
 
 class ValidateException(Exception):
     pass
@@ -33,24 +56,15 @@ class RetryError(Exception):
         self.data = None
 
 
-class UnretryableException(DaraException):
+class UnretryableException(TeaUnretryableException):
     def __init__(
             self,
-            request: DaraRequest,
-            ex: Exception
+            _context: RetryPolicyContext
     ):
-        self.last_request = request
-        self.inner_exception = ex
-        if isinstance(ex, DaraException):
-            super().__init__({
-                'code': ex.code,
-                'message': ex.message,
-                'data': ex.data
-            })
-        else:
-            super().__init__({
-                'message': repr(ex),
-            })
+        super().__init__(
+            request= _context.http_request,
+            ex= _context.exception,
+        )
 
     def __str__(self):
         return str(self.inner_exception)

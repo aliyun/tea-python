@@ -6,11 +6,11 @@ import os
 import ssl
 import time
 from typing import Any, Dict, Optional
+from enum import Enum
 from urllib.parse import urlencode, urlparse
 import re
 import certifi
-from requests import status_codes, adapters, PreparedRequest
-
+from requests import status_codes, adapters, PreparedRequest, Session
 from darabonba.exceptions import RequiredArgumentException, RetryError
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
@@ -20,6 +20,7 @@ from requests import status_codes, adapters, PreparedRequest, Response
 from darabonba.event import Event
 import json
 from darabonba.exceptions import DaraException
+from darabonba.policy.retry import RetryOptions, RetryPolicyContext
 
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
@@ -32,17 +33,51 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 logger.addHandler(ch)
 
+class TLSVersion(Enum):
+    TLSv1 = 'TLSv1'
+    TLSv1_1 = 'TLSv1.1'
+    TLSv1_2 = 'TLSv1.2'
+    TLSv1_3 = 'TLSv1.3'
+    
+class _TLSAdapter(adapters.HTTPAdapter):
+    """A HTTPAdapter that uses an arbitrary TLS version."""
+
+    def __init__(self, ssl_context=None, **kwargs):
+        self.ssl_context = ssl_context
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        """Override the init_poolmanager method to set the SSL."""
+        kwargs['ssl_context'] = self.ssl_context
+        super().init_poolmanager(*args, **kwargs)
 
 class DaraCore:
+    _sessions = {}
     http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
     https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
 
     @staticmethod
-    def get_adapter(prefix):
-        if prefix.upper() == 'HTTP':
-            return DaraCore.http_adapter
-        else:
-            return DaraCore.https_adapter
+    def _set_tls_minimum_version(sls_context, tls_min_version):
+        context = sls_context
+        if tls_min_version is not None:
+            if tls_min_version == 'TLSv1':
+                context.minimum_version = ssl.TLSVersion.TLSv1
+            elif tls_min_version == 'TLSv1.1':
+                context.minimum_version = ssl.TLSVersion.TLSv1_1
+            elif tls_min_version == 'TLSv1.2':
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+            elif tls_min_version == 'TLSv1.3':
+                context.minimum_version = ssl.TLSVersion.TLSv1_3
+        return context
+    
+    @staticmethod
+    def get_adapter(prefix, tls_min_version: str = None):
+        context = ssl.create_default_context()
+        if prefix.upper() == 'HTTPS':
+            context = DaraCore._set_tls_minimum_version(context, tls_min_version)
+        adapter = _TLSAdapter(ssl_context=context, pool_connections=DEFAULT_POOL_SIZE,
+                              pool_maxsize=DEFAULT_POOL_SIZE * 4)
+        return adapter
 
     @staticmethod
     def _prepare_http_debug(request, symbol):
@@ -177,9 +212,13 @@ class DaraCore:
         runtime_option = runtime_option or {}
 
         verify = not runtime_option.get('ignoreSSL', False)
+        tls_min_version = runtime_option.get('tlsMinVersion')
+        if isinstance(tls_min_version, Enum):
+            tls_min_version = tls_min_version.value
+
         if verify:
             verify = runtime_option.get('ca', True) if runtime_option.get('ca', True) is not None else True
-        cert = runtime_option.get('cert', None)
+        cert = certifi.where()
 
         timeout = runtime_option.get('timeout')
         connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
@@ -215,9 +254,14 @@ class DaraCore:
         if no_proxy:
             proxies['no_proxy'] = no_proxy
 
-        adapter = DaraCore.get_adapter(request.protocol)
+        host = request.headers.get('host')
+        host = host.rstrip('/')
+
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}'
+        session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
+                                       tls_min_version=tls_min_version)
         try:
-            resp = adapter.send(
+            resp = session.send(
                 p,
                 proxies=proxies,
                 timeout=timeout,
@@ -254,6 +298,29 @@ class DaraCore:
             retry = 0 if dic.get("maxAttempts") is None else int(
                 dic.get("maxAttempts"))
         return retry >= retry_times
+    
+    @staticmethod
+    def should_retry(options: RetryOptions, ctx: RetryPolicyContext) -> bool:
+        if ctx.retries_attempted == 0:
+            return True
+
+        if not options or not options.retryable:
+            return False
+
+        for condition in options.no_retry_condition:
+            if (condition.exception and ctx.exception.__class__.__name__ in condition.exception) or \
+            (ctx.exception and getattr(ctx.exception, 'code', None) in condition.error_code):
+                return False 
+
+        for condition in options.retry_condition:
+            if (condition.exception and ctx.exception.__class__.__name__ in condition.exception) or \
+            (ctx.exception and getattr(ctx.exception, 'code', None) in condition.error_code):
+                if ctx.retries_attempted < condition.max_attempts:
+                    return True 
+                else:
+                    return False
+
+        return False
 
     @staticmethod
     def get_backoff_time(dic, retry_times) -> int:
@@ -372,10 +439,8 @@ class DaraCore:
     @staticmethod
     def to_readable_stream(data):
         if isinstance(data, str):
-            # 如果输入是字符串，使用 io.StringIO
             return io.StringIO(data)
         elif isinstance(data, bytes):
-            # 如果输入是字节数据，使用 io.BytesIO
             return io.BytesIO(data)
         else:
             raise TypeError("Input data must be of type str or bytes")
@@ -386,6 +451,16 @@ class DaraCore:
             return model.to_map()
         else:
             return dict()
+
+    @staticmethod
+    def to_number(model) -> int:
+        if isinstance(model, int):
+            return model
+        if isinstance(model, str):
+            return int(model)
+        if isinstance(model, float):
+            return int(model)
+        return 0
 
     @staticmethod
     def from_map(
@@ -440,3 +515,15 @@ class DaraCore:
                     elif name == 'retry':
                         event.retry = int(value)
             yield {'status_code': status_code, 'headers': headers, 'event': event}
+            
+    @staticmethod
+    def _get_session(session_key: str, protocol: str, tls_min_version: str = None):
+        if session_key not in DaraCore._sessions:
+            session = Session()
+            adapter = DaraCore.get_adapter(protocol, tls_min_version)
+            if protocol.upper() == 'HTTPS':
+                session.mount('https://', adapter)
+            else:
+                session.mount('http://', adapter)
+            DaraCore._sessions[session_key] = session
+        return DaraCore._sessions[session_key]
