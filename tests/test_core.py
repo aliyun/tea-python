@@ -221,6 +221,29 @@ class TestCore(unittest.TestCase):
         self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
+        option = {
+            "readTimeout": 20000,
+            "connectTimeout": 10000,
+            "httpProxy": None,
+            "httpsProxy": None,
+            "noProxy": None,
+            "maxIdleConns": None,
+            "retry": {
+                "retryable": None,
+                "maxAttempts": None
+            },
+            "backoff": {
+                "policy": None,
+                "period": None
+            },
+            'debug': 'sdk',
+            "ignoreSSL": True,
+            "tlsMinVersion": TLSVersion.TLSv1_2
+        }
+        resp = TeaCore.do_action(request, option)
+        self.assertTrue(resp.headers.get('server'))
+        self.assertIsNotNone(bytes.decode(resp.body))
+
         request.headers['host'] = "127.0.0.1:8888"
         request.method = "POST"
         request.protocol = "http"
