@@ -68,20 +68,25 @@ class TeaCore:
 
     @staticmethod
     def get_adapter(prefix, tls_min_version: str = None):
+        ca_cert = certifi.where()
         context = ssl.create_default_context()
-        if prefix.upper() == 'HTTPS':
+        if ca_cert and prefix.upper() == 'HTTPS':
             context = TeaCore._set_tls_minimum_version(context, tls_min_version)
+            context.load_verify_locations(ca_cert)
         adapter = _TLSAdapter(ssl_context=context, pool_connections=DEFAULT_POOL_SIZE,
                               pool_maxsize=DEFAULT_POOL_SIZE * 4)
         return adapter
 
     @staticmethod
-    def _get_session(session_key: str, protocol: str, tls_min_version: str = None):
+    def _get_session(session_key: str, protocol: str, tls_min_version: str = None, verify: bool = True):
         if session_key not in TeaCore._sessions:
             session = Session()
             adapter = TeaCore.get_adapter(protocol, tls_min_version)
             if protocol.upper() == 'HTTPS':
-                session.mount('https://', adapter)
+                if verify:
+                    session.mount('https://', adapter)
+                else:
+                    session.mount('https://', TeaCore.https_adapter)
             else:
                 session.mount('http://', adapter)
             TeaCore._sessions[session_key] = session
@@ -271,7 +276,7 @@ class TeaCore:
 
         session_key = f'{request.protocol.lower()}://{host}:{request.port}'
         session = TeaCore._get_session(session_key=session_key, protocol=request.protocol,
-                                       tls_min_version=tls_min_version)
+                                       tls_min_version=tls_min_version, verify=verify)
         try:
             resp = session.send(
                 p,
