@@ -1,3 +1,6 @@
+### 2025-03-24 Version 0.4.3
+* Resolve ssl ignore bug.
+
 ### 2025-02-26 Version 0.4.2
 * Update urllib3 version for python 3.8.
 
