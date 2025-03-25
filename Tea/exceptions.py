@@ -41,6 +41,8 @@ class UnretryableException(TeaException):
     ):
         self.last_request = request
         self.inner_exception = ex
+        
+        
         if isinstance(ex, TeaException):
             super().__init__({
                 'code': ex.code,

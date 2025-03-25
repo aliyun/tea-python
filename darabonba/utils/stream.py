@@ -1,6 +1,7 @@
 import json
 import re
 from darabonba.event import Event
+from typing import Any
 
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
@@ -50,31 +51,113 @@ class Stream:
         self.position = 0
 
     @staticmethod
-    def read_as_bytes(data):
-        if isinstance(data, bytes):
-            return data
-        elif isinstance(data, str):
-            return data.encode('utf-8')
-        else:
-            raise TypeError("Data should be bytes or string.")
+    def __read_part(f, size=1024):
+        while True:
+            part = f.read(size)
+            if part:
+                yield part
+            else:
+                return
 
     @staticmethod
-    def read_as_json(data):
-        if isinstance(data, str):
-            return json.loads(data)
-        elif isinstance(data, bytes):
-            return json.loads(data.decode('utf-8'))
+    def __to_string(
+        val: bytes,
+    ) -> str:
+        """
+        Convert a bytes to string(utf8)
+        @return: the return string
+        """
+        if isinstance(val, str):
+            return val
+        elif isinstance(val, bytes):
+            return val.decode('utf-8')
         else:
-            raise TypeError("Data should be bytes or string.")
+            return str(val)
 
     @staticmethod
-    def read_as_string(data):
-        if isinstance(data, bytes):
-            return data.decode('utf-8')
-        elif isinstance(data, str):
-            return data
+    def __parse_json(
+        val: str,
+    ) -> Any:
+        """
+        Parse it by JSON format
+        @return: the parsed result
+        """
+        try:
+            return json.loads(val)
+        except ValueError:
+            raise RuntimeError(f'Failed to parse the value as json format, Value: "{val}".')
+
+    @staticmethod
+    def read_as_bytes(stream) -> bytes:
+        """
+        Read data from a readable stream, and compose it to a bytes
+        @param stream: the readable stream
+        @return: the bytes result
+        """
+        if isinstance(stream, READABLE):
+            b = b''
+            for part in Stream.__read_part(stream, 1024):
+                b += part
+            return b
+        elif isinstance(stream, bytes):
+            return stream
         else:
-            raise TypeError("Data should be bytes or string.")
+            return bytes(stream, encoding='utf-8')
+    
+    @staticmethod
+    async def read_as_bytes_async(stream) -> bytes:
+        """
+        Read data from a readable stream, and compose it to a bytes
+        @param stream: the readable stream
+        @return: the bytes result
+        """
+        if isinstance(stream, bytes):
+            return stream
+        elif isinstance(stream, str):
+            return bytes(stream, encoding='utf-8')
+        else:
+            return await stream.read()
+
+    @staticmethod
+    def read_as_json(stream) -> Any:
+        """
+        Read data from a readable stream, and parse it by JSON format
+        @param stream: the readable stream
+        @return: the parsed result
+        """
+        return Stream.__parse_json(Stream.read_as_string(stream))
+
+    @staticmethod
+    async def read_as_json_async(stream) -> Any:
+        """
+        Read data from a readable stream, and parse it by JSON format
+        @param stream: the readable stream
+        @return: the parsed result
+        """
+        return Stream.__parse_json(
+            await Stream.read_as_string_async(stream)
+        )
+
+
+    @staticmethod
+    def read_as_string(stream) -> str:
+        """
+        Read data from a readable stream, and compose it to a string
+        @param stream: the readable stream
+        @return: the string result
+        """
+        buff = Stream.read_as_bytes(stream)
+        return Stream.__to_string(buff)
+    
+    @staticmethod
+    async def read_as_string_async(stream) -> str:
+        """
+        Read data from a readable stream, and compose it to a string
+        @param stream: the readable stream
+        @return: the string result
+        """
+        buff = await Stream.read_as_bytes_async(stream)
+        return Stream.__to_string(buff)
 
     def read_as_sse(stream):
         event = Event()

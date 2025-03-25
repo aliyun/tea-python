@@ -142,6 +142,9 @@ class DaraCore:
 
         url = DaraCore.compose_url(request)
         verify = not runtime_option.get('ignoreSSL', False)
+        tls_min_version = runtime_option.get('tlsMinVersion')
+        if isinstance(tls_min_version, Enum):
+            tls_min_version = tls_min_version.value
 
         timeout = runtime_option.get('timeout')
         connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
@@ -163,6 +166,7 @@ class DaraCore:
         ca_cert = certifi.where()
         if ca_cert and request.protocol.upper() == 'HTTPS':
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
             ssl_context.load_verify_locations(ca_cert)
             connector = aiohttp.TCPConnector(
                 ssl=ssl_context,
@@ -428,13 +432,7 @@ class DaraCore:
 
     @staticmethod
     def is_null(value) -> bool:
-        if value is None:
-            return True
-        if isinstance(value, str) and value.strip() == '':
-            return True
-        if isinstance(value, (list, tuple, dict, set)) and len(value) == 0:
-            return True
-        return False
+        return value is None
     
     @staticmethod
     def to_readable_stream(data):
