@@ -33,6 +33,14 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 logger.addHandler(ch)
 
+class _ModelEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if isinstance(o, TeaModel):
+            return o.to_map()
+        elif isinstance(o, bytes):
+            return o.decode('utf-8')
+        super().default(o)
+
 class TLSVersion(Enum):
     TLSv1 = 'TLSv1'
     TLSv1_1 = 'TLSv1.1'
@@ -55,6 +63,20 @@ class DaraCore:
     _sessions = {}
     http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
     https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
+
+    @staticmethod
+    def to_json_string(
+        val: Any,
+    ) -> str:
+        """
+        Stringify a value by JSON format
+        @return: the JSON format string
+        """
+        if isinstance(val, str):
+            return str(val)
+        return json.dumps(
+            val, cls=_ModelEncoder, ensure_ascii=False, separators=(",", ":")
+        )
 
     @staticmethod
     def _set_tls_minimum_version(sls_context, tls_min_version):

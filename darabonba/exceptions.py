@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 class DaraException(TeaException):
     def __init__(self, dic):
+        super().__init__(dic)
         self.code = dic.get("code")
         self.message = dic.get("message")
         self.data = dic.get("data")
@@ -26,10 +27,9 @@ class ResponseException(DaraException):
                  status_code: Optional[int] = None,
                  retry_after: Optional[int] = None,
                  data: Optional[dict] = None,
-                 access_denied_detail: Optional[Any] = None,
-                 description: Optional[str] = None):
-
-        
+                 access_denied_detail: Optional[dict] = None,
+                 description: Optional[str] = None,
+                 stack: Optional[str] = None):
 
         super().__init__({
             'code': code,
@@ -42,6 +42,7 @@ class ResponseException(DaraException):
         self.name = 'ResponseException'
         self.status_code = status_code
         self.retry_after = retry_after
+        self.stack = stack
 
         if isinstance(self.data, dict) and 'statusCode' in self.data:
             self.status_code = int(self.data['statusCode'])
@@ -69,10 +70,14 @@ class UnretryableException(TeaUnretryableException):
             self,
             _context: RetryPolicyContext
     ):
+        if isinstance(_context.exception, ResponseException):
+            raise _context.exception
+        
         super().__init__(
             request= _context.http_request,
             ex= _context.exception,
         )
+        
 
     def __str__(self):
         return str(self.inner_exception)
