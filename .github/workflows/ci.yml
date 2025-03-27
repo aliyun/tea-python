@@ -33,7 +33,7 @@ jobs:
       if: matrix.python-version != '3.7' && matrix.python-version != '3.8'
     - name: Test with unittest
       run: |
-        coverage run --source="./Tea" -m pytest tests/test_*
+        coverage run --source="./darabonba" -m pytest tests/
     - name: Upload Coverage Report
       uses: codecov/codecov-action@v4
       with:

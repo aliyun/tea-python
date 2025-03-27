@@ -1,38 +1,50 @@
 import asyncio
+import aiohttp
 import logging
+import io
 import os
 import ssl
 import time
-from enum import Enum
-from typing import Any, Dict, Optional
-from urllib.parse import urlencode, urlparse
-
-import aiohttp
+import re
 import certifi
-from requests import Session, PreparedRequest, adapters, status_codes
+import json
+from requests import status_codes, adapters, PreparedRequest, Response
+from typing import Any, Dict, Optional
+from enum import Enum
+from urllib.parse import urlencode, urlparse
+from requests import status_codes, adapters, PreparedRequest, Session
+from darabonba.exceptions import RequiredArgumentException, RetryError, DaraException
+from darabonba.model import DaraModel
+from darabonba.request import DaraRequest
+from darabonba.response import DaraResponse
+from darabonba.utils.stream import BaseStream
+from darabonba.event import Event
+from darabonba.policy.retry import RetryOptions, RetryPolicyContext
 
-from Tea.exceptions import RequiredArgumentException, RetryError
-from Tea.model import TeaModel
-from Tea.request import TeaRequest
-from Tea.response import TeaResponse
-from Tea.stream import BaseStream
+sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
 DEFAULT_POOL_SIZE = 10
 
-logger = logging.getLogger('alibabacloud-tea')
+logger = logging.getLogger('darabonba-core')
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 logger.addHandler(ch)
 
+class _ModelEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if isinstance(o, DaraModel):
+            return o.to_map()
+        elif isinstance(o, bytes):
+            return o.decode('utf-8')
+        super().default(o)
 
 class TLSVersion(Enum):
     TLSv1 = 'TLSv1'
     TLSv1_1 = 'TLSv1.1'
     TLSv1_2 = 'TLSv1.2'
-    TLSv1_3 = 'TLSv1.3'
-
+    TLSv1_3 = 'TLSv1.3'    
 
 class _TLSAdapter(adapters.HTTPAdapter):
     """A HTTPAdapter that uses an arbitrary TLS version."""
@@ -46,11 +58,24 @@ class _TLSAdapter(adapters.HTTPAdapter):
         kwargs['ssl_context'] = self.ssl_context
         super().init_poolmanager(*args, **kwargs)
 
-
-class TeaCore:
+class DaraCore:
     _sessions = {}
     http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
     https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
+
+    @staticmethod
+    def to_json_string(
+        val: Any,
+    ) -> str:
+        """
+        Stringify a value by JSON format
+        @return: the JSON format string
+        """
+        if isinstance(val, str):
+            return str(val)
+        return json.dumps(
+            val, cls=_ModelEncoder, ensure_ascii=False, separators=(",", ":")
+        )
 
     @staticmethod
     def _set_tls_minimum_version(sls_context, tls_min_version):
@@ -65,32 +90,17 @@ class TeaCore:
             elif tls_min_version == 'TLSv1.3':
                 context.minimum_version = ssl.TLSVersion.TLSv1_3
         return context
-
+    
     @staticmethod
     def get_adapter(prefix, tls_min_version: str = None):
         ca_cert = certifi.where()
         context = ssl.create_default_context()
         if ca_cert and prefix.upper() == 'HTTPS':
-            context = TeaCore._set_tls_minimum_version(context, tls_min_version)
+            context = DaraCore._set_tls_minimum_version(context, tls_min_version)
             context.load_verify_locations(ca_cert)
         adapter = _TLSAdapter(ssl_context=context, pool_connections=DEFAULT_POOL_SIZE,
                               pool_maxsize=DEFAULT_POOL_SIZE * 4)
         return adapter
-
-    @staticmethod
-    def _get_session(session_key: str, protocol: str, tls_min_version: str = None, verify: bool = True):
-        if session_key not in TeaCore._sessions:
-            session = Session()
-            adapter = TeaCore.get_adapter(protocol, tls_min_version)
-            if protocol.upper() == 'HTTPS':
-                if verify:
-                    session.mount('https://', adapter)
-                else:
-                    session.mount('https://', TeaCore.https_adapter)
-            else:
-                session.mount('http://', adapter)
-            TeaCore._sessions[session_key] = session
-        return TeaCore._sessions[session_key]
 
     @staticmethod
     def _prepare_http_debug(request, symbol):
@@ -104,12 +114,12 @@ class TeaCore:
         # logger the request
         url = urlparse(request.url)
         request_base = f'\n> {request.method.upper()} {url.path + url.query} HTTP/1.1'
-        logger.debug(request_base + TeaCore._prepare_http_debug(request, '>'))
+        logger.debug(request_base + DaraCore._prepare_http_debug(request, '>'))
 
         # logger the response
         response_base = f'\n< HTTP/1.1 {response.status_code}' \
                         f' {status_codes._codes.get(response.status_code)[0].upper()}'
-        logger.debug(response_base + TeaCore._prepare_http_debug(response, '<'))
+        logger.debug(response_base + DaraCore._prepare_http_debug(response, '<'))
 
     @staticmethod
     def compose_url(request):
@@ -148,12 +158,12 @@ class TeaCore:
 
     @staticmethod
     async def async_do_action(
-            request: TeaRequest,
+            request: DaraRequest,
             runtime_option=None
-    ) -> TeaResponse:
+    ) -> DaraResponse:
         runtime_option = runtime_option or {}
 
-        url = TeaCore.compose_url(request)
+        url = DaraCore.compose_url(request)
         verify = not runtime_option.get('ignoreSSL', False)
         tls_min_version = runtime_option.get('tlsMinVersion')
         if isinstance(tls_min_version, Enum):
@@ -179,7 +189,7 @@ class TeaCore:
         ca_cert = certifi.where()
         if ca_cert and request.protocol.upper() == 'HTTPS':
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-            ssl_context = TeaCore._set_tls_minimum_version(ssl_context, tls_min_version)
+            ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
             ssl_context.load_verify_locations(ca_cert)
             connector = aiohttp.TCPConnector(
                 ssl=ssl_context,
@@ -209,7 +219,7 @@ class TeaCore:
                                      ssl=verify,
                                      proxy=proxy,
                                      timeout=timeout) as response:
-                    tea_resp = TeaResponse()
+                    tea_resp = DaraResponse()
                     tea_resp.body = await response.read()
                     tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
                     tea_resp.status_code = response.status
@@ -221,10 +231,10 @@ class TeaCore:
 
     @staticmethod
     def do_action(
-            request: TeaRequest,
+            request: DaraRequest,
             runtime_option=None
-    ) -> TeaResponse:
-        url = TeaCore.compose_url(request)
+    ) -> DaraResponse:
+        url = DaraCore.compose_url(request)
 
         runtime_option = runtime_option or {}
 
@@ -275,7 +285,7 @@ class TeaCore:
         host = host.rstrip('/')
 
         session_key = f'{request.protocol.lower()}://{host}:{request.port}'
-        session = TeaCore._get_session(session_key=session_key, protocol=request.protocol,
+        session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
                                        tls_min_version=tls_min_version, verify=verify)
         try:
             resp = session.send(
@@ -290,9 +300,9 @@ class TeaCore:
 
         debug = runtime_option.get('debug') or os.getenv('DEBUG')
         if debug and debug.lower() == 'sdk':
-            TeaCore._do_http_debug(p, resp)
+            DaraCore._do_http_debug(p, resp)
 
-        response = TeaResponse()
+        response = DaraResponse()
         response.status_message = resp.reason
         response.status_code = resp.status_code
         response.headers = {k.lower(): v for k, v in resp.headers.items()}
@@ -315,6 +325,29 @@ class TeaCore:
             retry = 0 if dic.get("maxAttempts") is None else int(
                 dic.get("maxAttempts"))
         return retry >= retry_times
+    
+    @staticmethod
+    def should_retry(options: RetryOptions, ctx: RetryPolicyContext) -> bool:
+        if ctx.retries_attempted == 0:
+            return True
+
+        if not options or not options.retryable:
+            return False
+
+        for condition in options.no_retry_condition:
+            if (condition.exception and ctx.exception.__class__ in condition.exception) or \
+            (ctx.exception and getattr(ctx.exception, 'code', None) in condition.error_code):
+                return False 
+
+        for condition in options.retry_condition:
+            if (condition.exception and ctx.exception.__class__ in condition.exception) or \
+            (ctx.exception and getattr(ctx.exception, 'code', None) in condition.error_code):
+                if ctx.retries_attempted < condition.max_attempts:
+                    return True 
+                else:
+                    return False
+
+        return False
 
     @staticmethod
     def get_backoff_time(dic, retry_times) -> int:
@@ -334,12 +367,12 @@ class TeaCore:
         return back_off_time
 
     @staticmethod
-    async def sleep_async(t):
-        await asyncio.sleep(t)
+    async def sleep_async(millisecond: int):
+        await asyncio.sleep(millisecond / 1000)
 
     @staticmethod
-    def sleep(t):
-        time.sleep(t)
+    def sleep(millisecond: int):
+        time.sleep(millisecond / 1000)
 
     @staticmethod
     def is_retryable(ex) -> bool:
@@ -355,23 +388,48 @@ class TeaCore:
         for item in dic_list:
             if isinstance(item, dict):
                 dic_result.update(item)
-            elif isinstance(item, TeaModel):
+            elif isinstance(item, DaraModel):
                 dic_result.update(item.to_map())
         return dic_result
 
     @staticmethod
-    def to_map(model: Optional[TeaModel]) -> Dict[str, Any]:
-        if isinstance(model, TeaModel):
+    def is_null(value) -> bool:
+        return value is None
+    
+    @staticmethod
+    def to_readable_stream(data):
+        if isinstance(data, str):
+            return io.StringIO(data)
+        elif isinstance(data, bytes):
+            return io.BytesIO(data)
+        else:
+            raise TypeError("Input data must be of type str or bytes")
+
+    @staticmethod
+    def to_map(model: Optional[DaraModel]) -> Dict[str, Any]:
+        if isinstance(model, DaraModel):
             return model.to_map()
         else:
             return dict()
 
     @staticmethod
+    def to_number(model) -> int:
+        if isinstance(model, int):
+            return model
+        if isinstance(model, str):
+            if model == "":
+                return 0
+            return int(model)
+        if isinstance(model, float):
+            return int(model)
+        return 0
+
+    @staticmethod
     def from_map(
-            model: TeaModel,
+            model: DaraModel,
             dic: Dict[str, Any]
-    ) -> TeaModel:
-        if isinstance(model, TeaModel):
+    ) -> DaraModel:
+        if isinstance(model, DaraModel):
             try:
                 return model.from_map(dic)
             except Exception:
@@ -379,3 +437,18 @@ class TeaCore:
                 return model
         else:
             return model
+
+    @staticmethod
+    def _get_session(session_key: str, protocol: str, tls_min_version: str = None, verify: bool = True):
+        if session_key not in DaraCore._sessions:
+            session = Session()
+            adapter = DaraCore.get_adapter(protocol, tls_min_version)
+            if protocol.upper() == 'HTTPS':
+                if verify:
+                    session.mount('https://', adapter)
+                else:
+                    session.mount('https://', DaraCore.https_adapter)
+            else:
+                session.mount('http://', adapter)
+            DaraCore._sessions[session_key] = session
+        return DaraCore._sessions[session_key]
