@@ -8,7 +8,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
-from darabonba.core import DaraCore, _TLSAdapter
+from darabonba.core import DaraCore, _TLSAdapter, TLSVersion
 from darabonba.exceptions import RetryError, DaraException
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
@@ -30,10 +30,10 @@ def run_server():
     server.serve_forever()
 
 
-class TeaStream(BaseStream):
+class DaraStream(BaseStream):
     def __init__(self):
         super().__init__()
-        self.content = b'tea test'
+        self.content = b'Dara test'
 
     def read(self, size=1024):
         content = self.content
@@ -41,7 +41,7 @@ class TeaStream(BaseStream):
         return content
 
     def __len__(self):
-        return len(b'tea test')
+        return len(b'Dara test')
 
     def __next__(self):
         content = self.read()
@@ -256,7 +256,7 @@ class TestCore(unittest.TestCase):
             "ignoreSSL": None,
             "tlsMinVersion": TLSVersion.TLSv1_2
         }
-        resp = TeaCore.do_action(request, option)
+        resp = DaraCore.do_action(request, option)
         self.assertTrue(resp.headers.get('server'))
         self.assertIsNotNone(bytes.decode(resp.body))
 
@@ -312,101 +312,101 @@ class TestCore(unittest.TestCase):
 
     def test_get_adapter(self):
         # Test TLSv1
-        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
             mock_context = mock.Mock()
             mock_create_default_context.return_value = mock_context
 
-            adapter = TeaCore.get_adapter('https', 'TLSv1')
+            adapter = DaraCore.get_adapter('https', 'TLSv1')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1)
 
         # Test TLSv1.1
-        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
             mock_context = mock.Mock()
             mock_create_default_context.return_value = mock_context
 
-            adapter = TeaCore.get_adapter('https', 'TLSv1.1')
+            adapter = DaraCore.get_adapter('https', 'TLSv1.1')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_1)
 
         # Test TLSv1.2
-        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
             mock_context = mock.Mock()
             mock_create_default_context.return_value = mock_context
 
-            adapter = TeaCore.get_adapter('https', 'TLSv1.2')
+            adapter = DaraCore.get_adapter('https', 'TLSv1.2')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_2)
 
         # Test TLSv1.3
-        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
             mock_context = mock.Mock()
             mock_create_default_context.return_value = mock_context
 
-            adapter = TeaCore.get_adapter('https', 'TLSv1.3')
+            adapter = DaraCore.get_adapter('https', 'TLSv1.3')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_3)
 
         # Test invalid TLS version
-        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
             mock_context = mock.Mock()
             mock_create_default_context.return_value = mock_context
 
-            adapter = TeaCore.get_adapter('https', 'TLSv1.4')
+            adapter = DaraCore.get_adapter('https', 'TLSv1.4')
             self.assertNotIsInstance(mock_context.minimum_version, ssl.TLSVersion)
 
         # Test HTTP protocol
-        with mock.patch('Tea.core.ssl.create_default_context') as mock_create_default_context:
+        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
             mock_context = mock.Mock()
             mock_create_default_context.return_value = mock_context
 
-            adapter = TeaCore.get_adapter('http', 'TLSv1.2')
+            adapter = DaraCore.get_adapter('http', 'TLSv1.2')
             self.assertNotIsInstance(mock_context.minimum_version, ssl.TLSVersion)
 
     def test_get_session(self):
-        request = TeaRequest()
+        request = DaraRequest()
         request.headers['host'] = "127.0.0.1:9999"
         request.protocol = "https"
         session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
 
         # Test with TLSv1.2
-        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
             mock_adapter = mock.Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
             mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2')
-            self.assertIn(session_key, TeaCore._sessions)
-            self.assertEqual(session, TeaCore._sessions[session_key])
+            self.assertIn(session_key, DaraCore._sessions)
+            self.assertEqual(session, DaraCore._sessions[session_key])
 
         # Test with TLSv1.3
-        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
             mock_adapter = mock.Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.3')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.3')
             mock_get_adapter.assert_not_called()  # Should not call get_adapter again
-            self.assertIn(session_key, TeaCore._sessions)
-            self.assertEqual(session, TeaCore._sessions[session_key])
+            self.assertIn(session_key, DaraCore._sessions)
+            self.assertEqual(session, DaraCore._sessions[session_key])
 
         # Test with HTTP protocol
         request.protocol = "http"
         session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
 
-        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
             mock_adapter = mock.Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
             mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2')
-            self.assertIn(session_key, TeaCore._sessions)
-            self.assertEqual(session, TeaCore._sessions[session_key])
+            self.assertIn(session_key, DaraCore._sessions)
+            self.assertEqual(session, DaraCore._sessions[session_key])
 
         # Test session caching
-        with mock.patch('Tea.core.TeaCore.get_adapter') as mock_get_adapter:
+        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
             mock_adapter = mock.Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = TeaCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
             mock_get_adapter.assert_not_called()  # Should not call get_adapter again
-            self.assertIn(session_key, TeaCore._sessions)
-            self.assertEqual(session, TeaCore._sessions[session_key])
+            self.assertIn(session_key, DaraCore._sessions)
+            self.assertEqual(session, DaraCore._sessions[session_key])
 
     def test_async_do_action(self):
         request = DaraRequest()
@@ -637,7 +637,7 @@ class TestCore(unittest.TestCase):
         request.headers['host'] = "127.0.0.1:8889"
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(DaraCore.async_do_action(request))
-        f = TeaStream()
+        f = DaraStream()
         request.body = f
         loop.run_until_complete(task)
-        self.assertEqual(b'{"result": "tea test"}', task.result().body)
+        self.assertEqual(b'{"result": "Dara test"}', task.result().body)
