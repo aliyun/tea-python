@@ -1,8 +1,7 @@
 import unittest
 import asyncio
-
-from Tea.decorators import deprecated
-
+from darabonba.decorators import deprecated, type_check
+import warnings
 
 class TestDecorators(unittest.TestCase):
     def test_deprecated_function(self):
@@ -21,16 +20,13 @@ class TestDecorators(unittest.TestCase):
             return "old_function_async"
 
         with self.assertWarns(DeprecationWarning) as cm:
-            loop = asyncio.get_event_loop()
-            task = asyncio.ensure_future(
-                old_function_async()
-            )
-            loop.run_until_complete(task)
-            result = task.result()
+            result = asyncio.run(old_function_async())
 
         self.assertEqual(result, "old_function_async")
-        self.assertIn("Call to deprecated function old_function_async. Use 'new_function_async' instead",
-                      str(cm.warning))
+        self.assertIn(
+            "Call to deprecated function old_function_async. Use 'new_function_async' instead",
+            str(cm.warning)
+        )
 
     def test_deprecated_static_method(self):
         class MyClass:
@@ -51,15 +47,13 @@ class TestDecorators(unittest.TestCase):
         self.assertIn("Call to deprecated function old_static_method. Use 'new_static_method' instead", str(cm.warning))
 
         with self.assertWarns(DeprecationWarning) as cm:
-            loop = asyncio.get_event_loop()
-            task = asyncio.ensure_future(
-                MyClass.old_static_method_async()
-            )
-            loop.run_until_complete(task)
-            result = task.result()
+            result = asyncio.run(MyClass.old_static_method_async())
+        
         self.assertEqual(result, "old_static_method_async")
-        self.assertIn("Call to deprecated function old_static_method_async. Use 'new_static_method_async' instead",
-                      str(cm.warning))
+        self.assertIn(
+            "Call to deprecated function old_static_method_async. Use 'new_static_method_async' instead",
+            str(cm.warning)
+        )
 
     def test_deprecated_class_method(self):
         class MyClass:
@@ -80,15 +74,13 @@ class TestDecorators(unittest.TestCase):
         self.assertIn("Call to deprecated function old_class_method. Use 'new_class_method' instead", str(cm.warning))
 
         with self.assertWarns(DeprecationWarning) as cm:
-            loop = asyncio.get_event_loop()
-            task = asyncio.ensure_future(
-                MyClass.old_class_method_async()
-            )
-            loop.run_until_complete(task)
-            result = task.result()
+            result = asyncio.run(MyClass.old_class_method_async())
+        
         self.assertEqual(result, "old_class_method_async")
-        self.assertIn("Call to deprecated function old_class_method_async. Use 'new_class_method_async' instead",
-                      str(cm.warning))
+        self.assertIn(
+            "Call to deprecated function old_class_method_async. Use 'new_class_method_async' instead",
+            str(cm.warning)
+        )
 
     def test_deprecated_instance_method(self):
         class MyClass:
@@ -106,16 +98,55 @@ class TestDecorators(unittest.TestCase):
             result = instance.old_instance_method()
 
         self.assertEqual(result, "old_instance_method")
-        self.assertIn("Call to deprecated function old_instance_method. Use 'new_instance_method' instead",
-                      str(cm.warning))
+        self.assertIn("Call to deprecated function old_instance_method. Use 'new_instance_method' instead", str(cm.warning))
 
         with self.assertWarns(DeprecationWarning) as cm:
-            loop = asyncio.get_event_loop()
-            task = asyncio.ensure_future(
-                instance.old_instance_method_async()
-            )
-            loop.run_until_complete(task)
-            result = task.result()
+            result = asyncio.run(instance.old_instance_method_async())
+
         self.assertEqual(result, "old_instance_method_async")
-        self.assertIn("Call to deprecated function old_instance_method_async. Use 'new_instance_method_async' instead",
-                      str(cm.warning))
+        self.assertIn(
+            "Call to deprecated function old_instance_method_async. Use 'new_instance_method_async' instead",
+            str(cm.warning)
+        )
+
+class TestDeprecatedDecorator(unittest.TestCase):
+    def test_deprecated(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            @deprecated("Use new_function instead.")
+            def old_function():
+                return "Hello, World!"
+
+            result = old_function()
+            self.assertEqual(result, "Hello, World!")
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, DeprecationWarning))
+            self.assertEqual(str(w[-1].message), "Call to deprecated function old_function. Use new_function instead.")
+
+
+class TestTypeCheckDecorator(unittest.TestCase):
+    def test_type_check(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            @type_check(int, str)
+            def example_function(a, b):
+                return f"{a} {b}"
+
+            result = example_function(1, "two")
+            self.assertEqual(result, "1 two")
+            self.assertEqual(len(w), 0)
+
+            example_function(1, 2)
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, UserWarning))
+            self.assertEqual(str(w[-1].message), "Argument 1 is not of type <class 'str'>")
+
+            example_function(a=1, b="two")
+            self.assertEqual(len(w), 1)
+
+            example_function(a=1, b=2)
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, UserWarning))
+

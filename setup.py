@@ -20,12 +20,14 @@ import ssl
 from setuptools import setup, find_packages
 
 """
-Setup module for tea.
+Setup module for darabonba.
 Created on 3/24/2020
 @author: Alibaba Cloud
 """
 
-install_requires = []
+install_requires = [
+    'alibabacloud-tea'
+]
 
 if sys.version_info.minor <= 7:
     install_requires.append('requests>=2.21.0, <2.32.0')
@@ -49,8 +51,8 @@ else:
         install_requires.remove('urllib3<2.3.0')
     install_requires.append('urllib3<2.0.0')
 
-PACKAGE = "Tea"
-DESCRIPTION = "The tea module of alibabaCloud Python SDK."
+PACKAGE = "darabonba"
+DESCRIPTION = "The darabonba module of alibabaCloud Python SDK."
 AUTHOR = "Alibaba Cloud"
 AUTHOR_EMAIL = "alibaba-cloud-sdk-dev-team@list.alibaba-inc.com"
 URL = "https://github.com/aliyun/tea-python"
@@ -67,7 +69,7 @@ setup_args = {
     'author_email': AUTHOR_EMAIL,
     'license': "Apache License 2.0",
     'url': URL,
-    'keywords': ["alibabacloud", "sdk", "tea"],
+    'keywords': ["alibabacloud", "sdk", "darabonba"],
     'packages': find_packages(exclude=["tests*"]),
     'platforms': 'any',
     'install_requires': install_requires,
@@ -87,4 +89,4 @@ setup_args = {
     'python_requires': '>=3.7'
 }
 
-setup(name='alibabacloud-tea', **setup_args)
+setup(name='darabonba-core', **setup_args)

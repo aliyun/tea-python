@@ -1,4 +1,4 @@
-class TeaRequest:
+class DaraRequest:
     _PROPERTY_DEFAULT_MAP = {
         'query': {},
         'protocol': 'http',
