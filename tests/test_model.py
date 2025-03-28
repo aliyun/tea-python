@@ -1,9 +1,8 @@
 import unittest
+from darabonba.model import DaraModel
 
-from Tea.model import TeaModel
-
-class TestTeaModel(unittest.TestCase):
-    class TestRegModel(TeaModel):
+class TestDaraModel(unittest.TestCase):
+    class TestRegModel(DaraModel):
         def __init__(self):
             self.requestId = "requestID"
             self.items = []
@@ -22,26 +21,24 @@ class TestTeaModel(unittest.TestCase):
             result['testListStr'] = self.testListStr
             return result
 
-    class TestRegSubModel(TeaModel):
+    class TestRegSubModel(DaraModel):
         def __init__(self):
             self.requestId = "subRequestID"
             self.testInt = 1
             self.test_dict = {'a': 1, 'b': {
                 'a': 1, 'b': 2, 'c': '3'}, 'c': '3'}
 
-    class TestModel(TeaModel):
+    class TestModel(DaraModel):
         def __init__(self):
             self.a = "a"
             self.b = "b"
             self.c = "c"
             self.d = 0
-            self.d = 1
             self.e = None
             self.f = ""
-            self.requestId = "requestId"
 
     def test_validate_required(self):
-        tm = TeaModel()
+        tm = DaraModel()
         tm.validate()
         tm.to_map()
         tm.from_map()
@@ -49,67 +46,66 @@ class TestTeaModel(unittest.TestCase):
         n = tm.validate_required('test', 'prop_name')
         self.assertIsNone(n)
 
-        try:
+        with self.assertRaises(Exception) as context:
             tm.validate_required(None, 'prop_name')
-            assert False
-        except Exception as e:
-            self.assertEqual('"prop_name" is required.', str(e))
+        self.assertEqual('"prop_name" is required.', str(context.exception))
 
     def test_validate_max_length(self):
-        tm = TeaModel()
+        tm = DaraModel()
         tm.validate_max_length('test', 'prop_name', 10)
 
-        try:
+        with self.assertRaises(Exception) as context:
             tm.validate_max_length('test', 'prop_name', 1)
-            assert False
-        except Exception as e:
-            self.assertEqual('prop_name is exceed max-length: 1', str(e))
+        self.assertEqual('prop_name is exceed max-length: 1', str(context.exception))
 
     def test_validate_min_length(self):
-        tm = TeaModel()
+        tm = DaraModel()
         tm.validate_min_length('test', 'prop_name', 1)
 
-        try:
+        with self.assertRaises(Exception) as context:
             tm.validate_min_length('test', 'prop_name', 10)
-            assert False
-        except Exception as e:
-            self.assertEqual('prop_name is less than min-length: 10', str(e))
+        self.assertEqual('prop_name is less than min-length: 10', str(context.exception))
 
     def test_validate_pattern(self):
-        tm = TeaModel()
+        tm = DaraModel()
         tm.validate_pattern('test', 'prop_name', 't')
 
         tm.validate_pattern(123.1, 'prop_name', '1')
 
-        try:
+        with self.assertRaises(Exception) as context:
             tm.validate_pattern('test', 'prop_name', '1')
-            assert False
-        except Exception as e:
-            self.assertEqual('prop_name is not match: 1', str(e))
+        self.assertEqual('prop_name is not match: 1', str(context.exception))
 
     def test_validate_maximum(self):
-        tm = TeaModel()
+        tm = DaraModel()
         tm.validate_maximum(1, 'count', 10)
 
-        try:
+        with self.assertRaises(Exception) as context:
             tm.validate_maximum(10, 'count', 1)
-            assert False
-        except Exception as e:
-            self.assertEqual('count is greater than the maximum: 1', str(e))
+        self.assertEqual('count is greater than the maximum: 1', str(context.exception))
 
     def test_validate_minimum(self):
-        tm = TeaModel()
+        tm = DaraModel()
         tm.validate_minimum(10, 'count', 1)
 
-        try:
-            tm.validate_minimum(1, 'count', 10,)
-            assert False
-        except Exception as e:
-            self.assertEqual('count is less than the minimum: 10', str(e))
+        with self.assertRaises(Exception) as context:
+            tm.validate_minimum(1, 'count', 10)
+        self.assertEqual('count is less than the minimum: 10', str(context.exception))
 
     def test_str(self):
         model = str(self.TestRegModel())
-        tm = str(TeaModel())
+        tm = str(DaraModel())
         self.assertTrue(model.startswith('{\''))
         self.assertTrue(model.endswith('}'))
-        self.assertTrue(tm.startswith('<Tea.model.TeaModel object'))
+        self.assertTrue(tm.startswith('<darabonba.model.DaraModel object'))
+
+    def test_to_map(self):
+        test_reg_model = self.TestRegModel()
+        self.assertDictEqual(test_reg_model.to_map(), {
+            'requestId': "requestID",
+            'items': [],
+            'nextMarker': "next",
+            'testNoAttr': "noAttr",
+            'subModel': None,
+            'testListStr': ["str", "test"]
+        })
