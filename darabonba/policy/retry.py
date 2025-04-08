@@ -32,7 +32,6 @@ class FixedBackoffPolicy(BackoffPolicy):
         super().__init__(option)
         self.period = option.get('period')
         
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -48,7 +47,6 @@ class RandomBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 20 * 1000)
         
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -66,7 +64,6 @@ class ExponentialBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 3 * 24 * 60 * 60 * 1000)
         
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -84,7 +81,7 @@ class EqualJitterBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 3 * 24 * 60 * 60 * 1000)
     
-    @staticmethod
+
     def to_map(self):
         return {
             'policy': self.policy,
@@ -102,7 +99,6 @@ class FullJitterBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 3 * 24 * 60 * 60 * 1000)
     
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -122,7 +118,6 @@ class RetryCondition:
         self.error_code = condition.get('errorCode', [])
         self.max_delay = condition.get('maxDelay', None)
     
-    @staticmethod
     def to_map(self):
         result = dict()
         if self.max_attempts:
@@ -133,6 +128,9 @@ class RetryCondition:
             result['exception'] = self.exception
         if self.error_code:
             result['errorCode'] = self.error_code
+        if self.max_delay:
+            result['maxDelay'] = self.max_delay
+        return result
 
     @staticmethod
     def from_map(data: Dict[str, Any]) -> 'RetryCondition':
@@ -159,7 +157,6 @@ class RetryOptions:
             raise ValueError("noRetryCondition must be a list of RetryCondition.")
         return True
     
-    @staticmethod
     def to_map(self):
         result = dict()
         if self.retryable:
@@ -174,8 +171,8 @@ class RetryOptions:
     def from_map(data: Dict[str, Any]) -> 'RetryOptions':
         options = {
             'retryable': data.get('retryable', True),
-            'retryCondition': [RetryCondition.from_map(cond) for cond in data.get('retryCondition', [])],
-            'noRetryCondition': [RetryCondition.from_map(cond) for cond in data.get('noRetryCondition', [])]
+            'retryCondition': [cond for cond in data.get('retryCondition', [])],
+            'noRetryCondition': [cond for cond in data.get('noRetryCondition', [])]
         }
         return RetryOptions(options)
 

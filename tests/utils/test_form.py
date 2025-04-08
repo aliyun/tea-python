@@ -1,6 +1,7 @@
 import unittest
 from io import BytesIO
 from darabonba.utils.form import Form, FileField
+from darabonba.exceptions import RequiredArgumentException
 
 class TestForm(unittest.TestCase):
     
@@ -108,3 +109,53 @@ class TestForm(unittest.TestCase):
         form_str = b''.join(body)
         self.assertEqual(content.encode(), form_str)
         self.assertEqual(len(content.encode()), len(form_str))
+        
+class TestFileField(unittest.TestCase):
+    
+    def test_file_field_validate(self):
+        valid_file_field = FileField(filename="example.txt", content_type="text/plain", content="This is some text content.")
+        
+        # Test valid file field which should not raise any exception
+        try:
+            valid_file_field.validate()
+        except Exception as e:
+            self.fail(f"validate method raised an exception unexpectedly: {e}")
+
+        # Test missing filename
+        with self.assertRaises(RequiredArgumentException):
+            invalid_file_field = FileField(content_type="text/plain", content="This is some text content.")
+            invalid_file_field.validate()
+        
+        # Test missing content_type
+        with self.assertRaises(RequiredArgumentException):
+            invalid_file_field = FileField(filename="example.txt", content="This is some text content.")
+            invalid_file_field.validate()
+        
+        # Test missing content
+        with self.assertRaises(RequiredArgumentException):
+            invalid_file_field = FileField(filename="example.txt", content_type="text/plain")
+            invalid_file_field.validate()
+
+    def test_to_map(self):
+        file_field = FileField(filename="example.txt", content_type="text/plain", content="This is some text content.")
+        expected_map = {
+            "filename": "example.txt",
+            "contentType": "text/plain",
+            "content": "This is some text content."
+        }
+        
+        self.assertEqual(file_field.to_map(), expected_map)
+
+    def test_from_map(self):
+        file_field = FileField()
+        input_map = {
+            "filename": "example.txt",
+            "contentType": "text/plain",
+            "content": "This is some text content."
+        }
+        
+        file_field.from_map(input_map)
+        
+        self.assertEqual(file_field.filename, "example.txt")
+        self.assertEqual(file_field.content_type, "text/plain")
+        self.assertEqual(file_field.content, "This is some text content.")
