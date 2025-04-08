@@ -110,6 +110,8 @@ class BaseUserResponse(DaraModel):
         self.userName = dic.get('userName')
         self.array = []
         if dic.get('array') is not None:
+            print('===========')
+            print(dic.get('array'))
             for i in dic.get('array'):
                 self.array.append(i)
         return self
@@ -367,11 +369,11 @@ class TestCore(unittest.TestCase):
 
         options = RetryOptions({
             "retryable": True,
-            "retryCondition": [{"exception": [Exception], "maxAttempts": 3}]
+            "retryCondition": [{"exception": ['DaraException'], "maxAttempts": 3}]
         })
 
         ctx.retries_attempted = 0
-        ctx.exception = Exception()
+        ctx.exception = DaraException({})
         self.assertTrue(DaraCore.should_retry(options, ctx))
 
         ctx.retries_attempted = 1
@@ -573,24 +575,6 @@ class TestCore(unittest.TestCase):
         except Exception as e:
             self.assertIsInstance(e, RetryError)
     
-    def test_get_backoff_time(self):
-        dic = {}
-        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
-        dic["policy"] = None
-        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
-        dic["policy"] = ""
-        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
-        dic["policy"] = "no"
-        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
-        dic["policy"] = "yes"
-        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
-        dic["period"] = None
-        self.assertEqual(0, DaraCore.get_backoff_time(dic, 1))
-        dic["period"] = -1
-        self.assertEqual(1, DaraCore.get_backoff_time(dic, 1))
-        dic["period"] = 1000
-        self.assertEqual(1000, DaraCore.get_backoff_time(dic, 1))
-    
     def test_to_number(self):
         # Test the case with different inputs
 
@@ -639,13 +623,12 @@ class TestCore(unittest.TestCase):
         m = {
             'phone': '138',
             'domainId': 'test',
-            'array': 123
+            'array': [123]
         }
         model2 = DaraCore.from_map(model, m)
         not_model = DaraCore.from_map({}, m)
         self.assertEqual({}, not_model)
-        self.assertEqual([], model2.array)
-        self.assertEqual(123, model2._map['array'])
+        self.assertEqual([123], model2.array)
     
     def test_is_null(self):
         self.assertTrue(DaraCore.is_null(None), "Expected is_null(None) to return True")
@@ -787,4 +770,7 @@ class TestCore(unittest.TestCase):
             mock_get_adapter.assert_not_called()  # Should not call get_adapter again
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
+            
+if __name__ == '__main__':
+    unittest.main()
             

@@ -1,4 +1,3 @@
-from darabonba.request import DaraRequest
 from Tea.exceptions import UnretryableException as TeaUnretryableException
 from Tea.exceptions import RequiredArgumentException as TeaRequiredArgumentException
 from Tea.exceptions import TeaException
@@ -16,6 +15,7 @@ class DaraException(TeaException):
         self.accessDeniedDetail = dic.get("accessDeniedDetail")
         if isinstance(dic.get("data"), dict) and dic.get("data").get("statusCode") is not None:
             self.statusCode = dic.get("data").get("statusCode")
+        self.name = 'DaraException'
 
     def __str__(self):
         return f'Error: {self.code} {self.message} Response: {self.data}'
@@ -59,10 +59,11 @@ class RequiredArgumentException(TeaRequiredArgumentException):
         return f'"{self.arg}" is required.'
 
 
-class RetryError(Exception):
+class RetryError(ResponseException):
     def __init__(self, message):
         self.message = message
         self.data = None
+        self.name = 'RetryError'
 
 
 class UnretryableException(TeaUnretryableException):
@@ -77,6 +78,8 @@ class UnretryableException(TeaUnretryableException):
             request= _context.http_request,
             ex= _context.exception,
         )
+        
+        self.name = 'UnretryableException'
         
 
     def __str__(self):

@@ -2,7 +2,6 @@ import json
 import re
 from darabonba.event import Event
 from typing import Any
-import asyncio
 
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
