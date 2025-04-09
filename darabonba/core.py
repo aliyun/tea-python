@@ -8,17 +8,16 @@ import time
 import re
 import certifi
 import json
-from requests import status_codes, adapters, PreparedRequest, Response
+from requests import status_codes, adapters, PreparedRequest
 from typing import Any, Dict, Optional
 from enum import Enum
 from urllib.parse import urlencode, urlparse
 from requests import status_codes, adapters, PreparedRequest, Session
-from darabonba.exceptions import RequiredArgumentException, RetryError, DaraException
+from darabonba.exceptions import RequiredArgumentException, RetryError
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
 from darabonba.response import DaraResponse
 from darabonba.utils.stream import BaseStream
-from darabonba.event import Event
 from darabonba.policy.retry import RetryOptions, RetryPolicyContext
 
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
@@ -26,6 +25,8 @@ sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
 DEFAULT_POOL_SIZE = 10
+MAX_DELAY_TIME = 120 * 1000
+MIN_DELAY_TIME = 100
 
 logger = logging.getLogger('darabonba-core')
 logger.setLevel(logging.DEBUG)
@@ -334,37 +335,38 @@ class DaraCore:
         if not options or not options.retryable:
             return False
 
+        retries_attempted = ctx.retries_attempted
+        ex = ctx.exception
+
         for condition in options.no_retry_condition:
-            if (condition.exception and ctx.exception.__class__ in condition.exception) or \
-            (ctx.exception and getattr(ctx.exception, 'code', None) in condition.error_code):
-                return False 
+            if getattr(ex, 'name', None) in condition.exception or getattr(ex, 'code', None) in condition.error_code:
+                return False
 
         for condition in options.retry_condition:
-            if (condition.exception and ctx.exception.__class__ in condition.exception) or \
-            (ctx.exception and getattr(ctx.exception, 'code', None) in condition.error_code):
-                if ctx.retries_attempted < condition.max_attempts:
-                    return True 
-                else:
-                    return False
+            if getattr(ex, 'name', None) not in condition.exception and getattr(ex, 'code', None) not in condition.error_code:
+                continue
+            
+            if retries_attempted >= condition.max_attempts:
+                return False
+            return True
 
         return False
 
     @staticmethod
-    def get_backoff_time(dic, retry_times) -> int:
-        default_back_off_time = 0
-        if dic is None or not dic.get("policy") or dic.get("policy") == "no":
-            return default_back_off_time
-
-        back_off_time = dic.get('period', default_back_off_time)
-        if not isinstance(back_off_time, int) and \
-                not (isinstance(back_off_time, str) and back_off_time.isdigit()):
-            return default_back_off_time
-
-        back_off_time = int(back_off_time)
-        if back_off_time < 0:
-            return retry_times
-
-        return back_off_time
+    def get_backoff_time(options: RetryOptions, ctx: RetryPolicyContext) -> int:
+        ex = ctx.exception
+        conditions = options.retry_condition
+        for condition in conditions:
+            if getattr(ex, 'name', None) not in condition.exception and getattr(ex, 'code', None) not in condition.error_code:
+                continue
+            max_delay = condition.max_delay or MAX_DELAY_TIME
+            retry_after = getattr(ctx.exception, "retry_after", None)
+            if retry_after is not None:
+                return min(retry_after, max_delay)
+            if not condition.backoff:
+                return MIN_DELAY_TIME
+            return min(condition.backoff.get_delay_time(ctx), max_delay)
+        return MIN_DELAY_TIME
 
     @staticmethod
     async def sleep_async(millisecond: int):
