@@ -93,8 +93,7 @@ class TestDaraException(TestCase):
         self.assertEqual(str(response_exception), expected_str)
 
     def test_response_exception_status_code(self):
-        data_with_status_code = {"statusCode": 403}
-        response_exception = ResponseException(data=data_with_status_code)
+        response_exception = ResponseException(status_code=403)
 
         self.assertEqual(response_exception.status_code, 403)
     def test_unretryable_exception(self):

@@ -1,4 +1,3 @@
-from darabonba.request import DaraRequest
 from Tea.exceptions import UnretryableException as TeaUnretryableException
 from Tea.exceptions import RequiredArgumentException as TeaRequiredArgumentException
 from Tea.exceptions import TeaException
@@ -16,6 +15,7 @@ class DaraException(TeaException):
         self.accessDeniedDetail = dic.get("accessDeniedDetail")
         if isinstance(dic.get("data"), dict) and dic.get("data").get("statusCode") is not None:
             self.statusCode = dic.get("data").get("statusCode")
+        self.name = 'DaraException'
 
     def __str__(self):
         return f'Error: {self.code} {self.message} Response: {self.data}'
@@ -30,7 +30,8 @@ class ResponseException(DaraException):
                  access_denied_detail: Optional[dict] = None,
                  description: Optional[str] = None,
                  stack: Optional[str] = None):
-
+        if data and status_code is not None:
+            data['statusCode'] = status_code
         super().__init__({
             'code': code,
             'message': message,
@@ -44,9 +45,6 @@ class ResponseException(DaraException):
         self.retry_after = retry_after
         self.stack = stack
 
-        if isinstance(self.data, dict) and 'statusCode' in self.data:
-            self.status_code = int(self.data['statusCode'])
-
 class ValidateException(Exception):
     pass
 
@@ -59,10 +57,23 @@ class RequiredArgumentException(TeaRequiredArgumentException):
         return f'"{self.arg}" is required.'
 
 
-class RetryError(Exception):
+class RetryError(ResponseException):
     def __init__(self, message):
+        
+        super().__init__(
+            code=None,
+            message=message,
+            status_code=None,
+            retry_after=None,
+            data=None,
+            access_denied_detail=None,
+            description=None,
+            stack=None
+        )
+        
         self.message = message
         self.data = None
+        self.name = 'RetryError'
 
 
 class UnretryableException(TeaUnretryableException):
@@ -77,6 +88,8 @@ class UnretryableException(TeaUnretryableException):
             request= _context.http_request,
             ex= _context.exception,
         )
+        
+        self.name = 'UnretryableException'
         
 
     def __str__(self):

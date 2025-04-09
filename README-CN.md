@@ -4,14 +4,14 @@
 
 ## Alibaba Cloud Tea for Python
 
-[![PyPI version](https://badge.fury.io/py/alibabacloud-tea.svg)](https://badge.fury.io/py/alibabacloud-tea)
+[![PyPI version](https://badge.fury.io/py/darabonba-core.svg)](https://badge.fury.io/py/darabonba-core)
 [![Python Test](https://github.com/aliyun/tea-python/actions/workflows/ci.yml/badge.svg)](https://github.com/aliyun/tea-python/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/aliyun/tea-python/graph/badge.svg?token=FN19OMRTVY)](https://codecov.io/gh/aliyun/tea-python)
-[![python](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)](https://img.shields.io/pypi/pyversions/alibabacloud-tea.svg)
+[![python](https://img.shields.io/pypi/pyversions/darabonba-core.svg)](https://img.shields.io/pypi/pyversions/darabonba-core.svg)
 
 ## 重要的更新
 
-- `alibabacloud-tea` 包版本从 0.4.0 开始，仅支持 Python 3.7 及以上的环境。
+- `darabonba-core` 包版本从 1.0.0 开始，仅支持 Python 3.7 及以上的环境。
 
 ## 安装
 
@@ -20,8 +20,8 @@
 如未安装 `pip`, 请先至pip官网 [pip user guide](https://pip.pypa.io/en/stable/installing/ "pip User Guide") 安装pip .
 
 ```bash
-# 安装 alibabacloud-tea
-pip install alibabacloud-tea
+# 安装 darabonba-core
+pip install darabonba-core
 ```
 
 ## 问题

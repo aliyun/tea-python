@@ -32,7 +32,6 @@ class FixedBackoffPolicy(BackoffPolicy):
         super().__init__(option)
         self.period = option.get('period')
         
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -48,7 +47,6 @@ class RandomBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 20 * 1000)
         
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -66,7 +64,6 @@ class ExponentialBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 3 * 24 * 60 * 60 * 1000)
         
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -84,7 +81,7 @@ class EqualJitterBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 3 * 24 * 60 * 60 * 1000)
     
-    @staticmethod
+
     def to_map(self):
         return {
             'policy': self.policy,
@@ -102,7 +99,6 @@ class FullJitterBackoffPolicy(BackoffPolicy):
         self.period = option.get('period')
         self.cap = option.get('cap', 3 * 24 * 60 * 60 * 1000)
     
-    @staticmethod
     def to_map(self):
         return {
             'policy': self.policy,
@@ -117,12 +113,17 @@ class FullJitterBackoffPolicy(BackoffPolicy):
 class RetryCondition:
     def __init__(self, condition: Dict[str, Any]):
         self.max_attempts = condition.get('maxAttempts', None)
-        self.backoff = condition.get('backoff') and BackoffPolicy.new_backoff_policy(condition['backoff'])
+        self.backoff = self._ensure_backoff_policy(condition.get('backoff', None))
         self.exception = condition.get('exception', [])
         self.error_code = condition.get('errorCode', [])
         self.max_delay = condition.get('maxDelay', None)
     
-    @staticmethod
+    def _ensure_backoff_policy(self, backoff):
+        if isinstance(backoff, dict):
+            return BackoffPolicy.new_backoff_policy(backoff)
+        elif isinstance(backoff, BackoffPolicy):
+            return backoff
+
     def to_map(self):
         result = dict()
         if self.max_attempts:
@@ -133,6 +134,9 @@ class RetryCondition:
             result['exception'] = self.exception
         if self.error_code:
             result['errorCode'] = self.error_code
+        if self.max_delay:
+            result['maxDelay'] = self.max_delay
+        return result
 
     @staticmethod
     def from_map(data: Dict[str, Any]) -> 'RetryCondition':
@@ -147,9 +151,17 @@ class RetryCondition:
 class RetryOptions:
     def __init__(self, options: Dict[str, Any]):
         self.retryable = options.get('retryable', True)
-        self.retry_condition = [RetryCondition(condition) for condition in options.get('retryCondition', [])]
-        self.no_retry_condition = [RetryCondition(condition) for condition in options.get('noRetryCondition', [])]
-    
+        self.retry_condition = [self._ensure_retry_condition(cond) for cond in options.get('retryCondition', [])]
+        self.no_retry_condition = [self._ensure_retry_condition(cond) for cond in options.get('noRetryCondition', [])]
+
+    def _ensure_retry_condition(self, condition):
+        if isinstance(condition, dict):
+            return RetryCondition(condition)
+        elif isinstance(condition, RetryCondition):
+            return condition
+        else:
+            raise ValueError("Condition must be either a dictionary or a RetryCondition instance")
+
     def validate(self) -> bool:
         if not isinstance(self.retryable, bool):
             raise ValueError("retryable must be a boolean.")
@@ -159,7 +171,6 @@ class RetryOptions:
             raise ValueError("noRetryCondition must be a list of RetryCondition.")
         return True
     
-    @staticmethod
     def to_map(self):
         result = dict()
         if self.retryable:
@@ -174,8 +185,8 @@ class RetryOptions:
     def from_map(data: Dict[str, Any]) -> 'RetryOptions':
         options = {
             'retryable': data.get('retryable', True),
-            'retryCondition': [RetryCondition.from_map(cond) for cond in data.get('retryCondition', [])],
-            'noRetryCondition': [RetryCondition.from_map(cond) for cond in data.get('noRetryCondition', [])]
+            'retryCondition': [cond for cond in data.get('retryCondition', [])],
+            'noRetryCondition': [cond for cond in data.get('noRetryCondition', [])]
         }
         return RetryOptions(options)
 
