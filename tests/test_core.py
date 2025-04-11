@@ -6,14 +6,14 @@ import unittest
 import ssl
 import io
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from requests import Response, PreparedRequest 
+from requests import PreparedRequest 
 from unittest import mock
 from darabonba.core import DaraCore, _TLSAdapter, TLSVersion, _ModelEncoder
 from darabonba.exceptions import RetryError, DaraException
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
 from darabonba.utils.stream import BaseStream
-from darabonba.policy.retry import RetryOptions, RetryPolicyContext, RetryCondition
+from darabonba.policy.retry import RetryPolicyContext, RetryOptions, RetryCondition, BackoffPolicy
 
 MAX_DELAY_TIME = 120 * 1000
 MIN_DELAY_TIME = 100
@@ -825,4 +825,381 @@ class TestGetBackoffTime(unittest.TestCase):
         ctx = RetryPolicyContext(exception=self.retry_error)
         result = DaraCore.get_backoff_time(self.retry_options, ctx)
         self.assertEqual(result, MIN_DELAY_TIME)
-            
+
+class BaseError(Exception):
+
+    def __init__(self, map: dict):
+        self.name = map.get('name', None)
+        self.code = map.get('code', None)
+        self.message = map.get('message', None)
+
+class AErr(BaseError):
+
+    def __init__(self, map: dict):
+        super().__init__(map)
+        self.name = 'AErr'
+
+class BErr(BaseError):
+
+    def __init__(self, map: dict):
+        super().__init__(map)
+        self.name = 'BErr'
+
+class CErr(BaseError):
+
+    def __init__(self, map: dict):
+        super().__init__(map)
+        self.name = 'BErr'
+        self.retry_after = map.get('retryAfter', None)
+
+class TestRetry(unittest.TestCase):
+
+    def test_init_base_backoff_policy_should_not_okay(self):
+        with self.assertRaises(NotImplementedError) as context:
+            err = BackoffPolicy({})
+            ctx = RetryPolicyContext(
+                retries_attempted=3,
+                exception=AErr({
+                    'code': 'A1Err',
+                    'message': 'a1 error',
+                })
+            )
+            err.get_delay_time(ctx)
+        self.assertEqual(str(context.exception), 'un-implemented')
+
+    def test_should_retry(self):
+        ctx = RetryPolicyContext(
+            retries_attempted=3,
+        )
+        self.assertFalse(DaraCore.should_retry(None, ctx))
+        self.assertFalse(DaraCore.should_retry({}, ctx))
+
+        ctx = RetryPolicyContext(
+            retries_attempted=0,
+        )
+        self.assertTrue(DaraCore.should_retry(None, ctx))
+
+        condition1 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err']
+        })
+        options = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition1]
+        })
+
+        ctx = RetryPolicyContext(
+            retries_attempted=3,
+            exception=AErr({
+                'code': 'A1Err',
+                'message': 'a1 error',
+            })
+        )
+        self.assertFalse(DaraCore.should_retry(options, ctx))
+
+        options = RetryOptions({
+            'retryable': True,
+        })
+        self.assertFalse(DaraCore.should_retry(options, ctx))
+
+        options = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition1]
+        })
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=AErr({
+                'code': 'A1Err',
+                'message': 'a1 error',
+            })
+        )
+        self.assertTrue(DaraCore.should_retry(options, ctx))
+
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=AErr({
+                'code': 'B1Err',
+                'message': 'b1 error',
+            })
+        )
+        self.assertTrue(DaraCore.should_retry(options, ctx))
+
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=BErr({
+                'code': 'B1Err',
+                'message': 'b1 error',
+            })
+        )
+        self.assertFalse(DaraCore.should_retry(options, ctx))
+
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=BErr({
+                'code': 'A1Err',
+                'message': 'b1 error',
+            })
+        )
+        self.assertTrue(DaraCore.should_retry(options, ctx))
+
+        condition2 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['BErr'],
+            'errorCode': ['B1Err']
+        })
+
+        options = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition2],
+            'noRetryCondition': [condition2]
+        })
+
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=AErr({
+                'code': 'B1Err',
+                'message': 'b1 error',
+            })
+        )
+        self.assertFalse(DaraCore.should_retry(options, ctx))
+
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=BErr({
+                'code': 'A1Err',
+                'message': 'a1 error',
+            })
+        )
+        self.assertFalse(DaraCore.should_retry(options, ctx))
+
+        ctx = RetryPolicyContext(
+            retries_attempted=1,
+            exception=BErr({
+                'code': 'A1Err',
+                'message': 'b1 error',
+            })
+        )
+        self.assertFalse(DaraCore.should_retry(options, ctx))
+    def test_get_backoff_time(self):
+        condition = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err']
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition]
+        })
+        
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=AErr({
+                'code': 'A1Err',
+                'message': 'a1 error',
+            })
+        )
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 100)
+        
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=BErr({
+                'code': 'B1Err',
+                'message': 'a1 error',
+            })
+        )
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 100)
+        
+        fixedPolicy = BackoffPolicy.new_backoff_policy({"policy": "Fixed", "period": 1000})
+        condition1 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": fixedPolicy
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition1]
+        })
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=AErr({
+                'code': 'AErr',
+                'message': 'a error',
+            })
+        )
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 1000)
+        
+        randomPolicy = BackoffPolicy.new_backoff_policy({"policy": "Random", "period": 1000, "cap": 10000})
+        condition2 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": randomPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition2]
+        })
+        self.assertTrue(DaraCore.get_backoff_time(option, ctx) < 10000)
+        
+        randomPolicy2 = BackoffPolicy.new_backoff_policy({"policy": "Random", "period": 10000, "cap": 10})
+        condition2Other = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": randomPolicy2,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition2Other]
+        })
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 10)
+        
+        exponentialPolicy = BackoffPolicy.new_backoff_policy({"policy": "Exponential", "period": 5, "cap": 10000})
+        condition3 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": exponentialPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition3]
+        })
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 1024)
+        
+        exponentialPolicy = BackoffPolicy.new_backoff_policy({"policy": "Exponential", "period": 10, "cap": 10000})
+        condition4 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": exponentialPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition4]
+        })
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 10000)
+        
+        equalJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "EqualJitter", "period": 5, "cap": 10000})
+        condition5 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": equalJitterPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition5]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertTrue(backoffTime > 512 and backoffTime < 1024)
+        
+        equalJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "EqualJitter", "period": 10, "cap": 10000})
+        condition6 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": equalJitterPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition6]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertTrue(backoffTime > 5000 and backoffTime < 10000)
+        
+        fullJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "FullJitter", "period": 5, "cap": 10000})
+        condition7 = RetryCondition({
+            'maxAttempts': 2,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": fullJitterPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition7]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertTrue(backoffTime > 0 and backoffTime < 1024)
+        
+        fullJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "ExponentialWithFullJitter", "period": 10, "cap": 10000})
+        condition8 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": fullJitterPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition8]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertTrue(backoffTime >= 0 and backoffTime < 10000)
+        
+        condition9 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": fullJitterPolicy,
+            "maxDelay": 1000
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition9]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertTrue(backoffTime >= 0 and backoffTime <= 1000)
+        
+        fullJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "ExponentialWithFullJitter", "period": 100, "cap": 10000 * 10000})
+        condition12 = RetryCondition({
+            'maxAttempts': 2,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": fullJitterPolicy
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition12]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertTrue(backoffTime >= 0 and backoffTime <= 120 * 1000)
+
+        
+        ctx = RetryPolicyContext(
+            retries_attempted=2,
+            exception=CErr({
+                'code': 'CErr',
+                'message': 'c error',
+                'retryAfter': 3000
+            })
+        )
+        fullJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "ExponentialWithFullJitter", "period": 100, "cap": 10000 * 10000})
+        condition10 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['CErr'],
+            'errorCode': ['CErr'],
+            "backoff": fullJitterPolicy,
+            "maxDelay": 5000
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition10]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertEqual(backoffTime, 3000)
+        
+        condition11 = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['CErr'],
+            'errorCode': ['CErr'],
+            "backoff": fullJitterPolicy,
+            "maxDelay": 1000
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition11]
+        })
+        backoffTime = DaraCore.get_backoff_time(option, ctx)
+        self.assertEqual(backoffTime, 1000)

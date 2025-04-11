@@ -113,11 +113,17 @@ class FullJitterBackoffPolicy(BackoffPolicy):
 class RetryCondition:
     def __init__(self, condition: Dict[str, Any]):
         self.max_attempts = condition.get('maxAttempts', None)
-        self.backoff = condition.get('backoff') and BackoffPolicy.new_backoff_policy(condition['backoff'])
+        self.backoff = self._ensure_backoff_policy(condition.get('backoff', None))
         self.exception = condition.get('exception', [])
         self.error_code = condition.get('errorCode', [])
         self.max_delay = condition.get('maxDelay', None)
     
+    def _ensure_backoff_policy(self, backoff):
+        if isinstance(backoff, dict):
+            return BackoffPolicy.new_backoff_policy(backoff)
+        elif isinstance(backoff, BackoffPolicy):
+            return backoff
+
     def to_map(self):
         result = dict()
         if self.max_attempts:
@@ -145,9 +151,17 @@ class RetryCondition:
 class RetryOptions:
     def __init__(self, options: Dict[str, Any]):
         self.retryable = options.get('retryable', True)
-        self.retry_condition = [RetryCondition(condition) for condition in options.get('retryCondition', [])]
-        self.no_retry_condition = [RetryCondition(condition) for condition in options.get('noRetryCondition', [])]
-    
+        self.retry_condition = [self._ensure_retry_condition(cond) for cond in options.get('retryCondition', [])]
+        self.no_retry_condition = [self._ensure_retry_condition(cond) for cond in options.get('noRetryCondition', [])]
+
+    def _ensure_retry_condition(self, condition):
+        if isinstance(condition, dict):
+            return RetryCondition(condition)
+        elif isinstance(condition, RetryCondition):
+            return condition
+        else:
+            raise ValueError("Condition must be either a dictionary or a RetryCondition instance")
+
     def validate(self) -> bool:
         if not isinstance(self.retryable, bool):
             raise ValueError("retryable must be a boolean.")
