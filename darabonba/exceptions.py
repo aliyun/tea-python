@@ -57,24 +57,14 @@ class RequiredArgumentException(TeaRequiredArgumentException):
         return f'"{self.arg}" is required.'
 
 
-class RetryError(ResponseException):
+class RetryError(Exception):
     def __init__(self, message):
         
-        super().__init__(
-            code=None,
-            message=message,
-            status_code=None,
-            retry_after=None,
-            data=None,
-            access_denied_detail=None,
-            description=None,
-            stack=None
-        )
+        super().__init__({"message":message})
         
         self.message = message
         self.data = None
         self.name = 'RetryError'
-
 
 class UnretryableException(TeaUnretryableException):
     def __init__(
