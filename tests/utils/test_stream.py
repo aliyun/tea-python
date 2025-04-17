@@ -2,7 +2,7 @@ import unittest
 import asyncio
 from darabonba.utils.stream import Stream, BaseStream, READABLE, WRITABLE, STREAM_CLASS
 import os
-import io
+from io import BytesIO, StringIO
 
 root_path = os.path.dirname(__file__)
 
@@ -26,7 +26,7 @@ class TestStream(unittest.TestCase):
                 self.assertIsInstance(f, WRITABLE)
                 self.assertIsInstance(f, STREAM_CLASS)
 
-            with io.BytesIO(b'test') as bio:
+            with BytesIO(b'test') as bio:
                 self.assertIsInstance(bio, READABLE)
                 self.assertIsInstance(bio, STREAM_CLASS)
 
@@ -144,7 +144,7 @@ class TestStream(unittest.TestCase):
             self.stream.pipe(123)
 
     def test_read_part_normal(self):
-        mock_stream = io.BytesIO(b'This is a simple test for read part functionality.')
+        mock_stream = BytesIO(b'This is a simple test for read part functionality.')
 
         chunks = list(Stream._Stream__read_part(mock_stream, size=15))
 
@@ -158,13 +158,13 @@ class TestStream(unittest.TestCase):
         self.assertEqual(chunks, expected_chunks)
 
     def test_read_part_empty_stream(self):
-        mock_stream = io.BytesIO(b'')
+        mock_stream = BytesIO(b'')
 
         chunks = list(Stream._Stream__read_part(mock_stream, size=10))
         self.assertEqual(chunks, [])
 
     def test_read_part_exact_size(self):
-        mock_stream = io.BytesIO(b'Test data')
+        mock_stream = BytesIO(b'Test data')
 
         chunks = list(Stream._Stream__read_part(mock_stream, size=9))
         self.assertEqual(chunks, [b'Test data'])
@@ -204,7 +204,7 @@ class TestStream(unittest.TestCase):
         ]
 
         sse_bytes = b''.join([item.encode('utf-8') for item in sse_data_array])
-        stream = io.BytesIO(sse_bytes)
+        stream = BytesIO(sse_bytes)
 
         result = list(Stream.read_as_sse(stream))
 
@@ -241,7 +241,7 @@ class TestStream(unittest.TestCase):
         ]
 
         sse_bytes = b''.join([item.encode('utf-8') for item in sse_data_array])
-        stream = io.BytesIO(sse_bytes)
+        stream = BytesIO(sse_bytes)
 
         result = asyncio.run(Stream.read_as_sse_async(stream))
 
@@ -257,3 +257,44 @@ class TestStream(unittest.TestCase):
             self.assertEqual(exp['id'], res['id'])
             self.assertEqual(exp['event'], res['event'])
             self.assertEqual(exp['data'], res['data'])
+    
+    
+    def test_to_readable(self):
+        # Test with string input
+        readable = Stream.to_readable("This is a string")
+        self.assertIsInstance(readable, BytesIO)
+        self.assertEqual(readable.getvalue(), b"This is a string")
+
+        # Test with bytes input
+        readable = Stream.to_readable(b"This is bytes")
+        self.assertIsInstance(readable, BytesIO)
+        self.assertEqual(readable.getvalue(), b"This is bytes")
+
+        # Test with valid readable stream (BytesIO)
+        readable = Stream.to_readable(BytesIO(b"Stream"))
+        self.assertIsInstance(readable, BytesIO)
+        self.assertEqual(readable.getvalue(), b"Stream")
+
+        # Test with invalid input (should raise ValueError)
+        with self.assertRaises(ValueError):
+            Stream.to_readable(123)
+
+    def test_to_writeable(self):
+        # Test with string input
+        writeable = Stream.to_writeable("This is a string")
+        self.assertIsInstance(writeable, StringIO)
+        self.assertEqual(writeable.getvalue(), "This is a string")
+
+        # Test with bytes input
+        writeable = Stream.to_writeable(b"This is bytes")
+        self.assertIsInstance(writeable, BytesIO)
+        self.assertEqual(writeable.getvalue(), b"This is bytes")
+
+        # Test with valid writeable stream (StringIO)
+        writeable = Stream.to_writeable(StringIO("Stream"))
+        self.assertIsInstance(writeable, StringIO)
+        self.assertEqual(writeable.getvalue(), "Stream")
+
+        # Test with invalid input (should raise ValueError)
+        with self.assertRaises(ValueError):
+            Stream.to_writeable(123)

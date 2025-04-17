@@ -1,8 +1,10 @@
 import json
 import re
 from darabonba.event import Event
-from typing import Any
+from io import BytesIO, StringIO
+from typing import Any, BinaryIO
 
+# define WRITEABLE
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
 class BaseStream:
@@ -262,4 +264,38 @@ class Stream:
             chunk = self.read(buffer_size)
             if not chunk:
                 break
-            output_stream.write(chunk) 
+            output_stream.write(chunk)
+    
+    @staticmethod
+    def to_readable(
+        value: Any,
+    ) -> BinaryIO:
+        """
+        Assert a value, if it is a readable, return it, otherwise throws
+        @return: the readable value
+        """
+        if isinstance(value, str):
+            value = value.encode('utf-8')
+
+        if isinstance(value, bytes):
+            value = BytesIO(value)
+        elif not isinstance(value, READABLE):
+            raise ValueError(f'The value is not a readable')
+        return value
+
+    @staticmethod
+    def to_writeable(
+        value: Any,
+    ) -> WRITABLE:
+        """
+        Assert a value, if it is a writeable, return it, otherwise throws
+        @return: the writeable value
+        """
+        if isinstance(value, str):
+            value = StringIO(value)
+
+        elif isinstance(value, bytes):
+            value = BytesIO(value)
+        elif not isinstance(value, WRITABLE):
+            raise ValueError(f'The value is not a writeable')
+        return value
