@@ -1,6 +1,6 @@
 import unittest
 import asyncio
-from darabonba.utils.stream import Stream, BaseStream, READABLE, WRITABLE, STREAM_CLASS
+from darabonba.utils.stream import Stream, BaseStream, READABLE, WRITABLE, STREAM_CLASS, AsyncBytesIO
 import os
 from io import BytesIO, StringIO
 
@@ -298,3 +298,39 @@ class TestStream(unittest.TestCase):
         # Test with invalid input (should raise ValueError)
         with self.assertRaises(ValueError):
             Stream.to_writeable(123)
+    
+        
+    async def test_to_readable_async_with_string(self):
+        test_input = "Hello, world!"
+        readable = await Stream.to_readable_async(test_input)
+        self.assertIsInstance(readable, AsyncBytesIO)
+        content = await readable.read()
+        self.assertEqual(content, test_input.encode('utf-8'))
+
+    async def test_to_readable_async_with_bytes(self):
+        test_input = b"Hello, world!"
+        readable = await Stream.to_readable_async(test_input)
+        self.assertIsInstance(readable, AsyncBytesIO)
+        content = await readable.read()
+        self.assertEqual(content, test_input)
+
+    async def test_to_readable_async_with_readable_object(self):
+        class SimpleReadable:
+            def __init__(self, data):
+                self.data = data.encode('utf-8')
+            
+            async def read(self):
+                return self.data
+
+            def __iter__(self):
+                return iter(self.data)
+
+        test_input = SimpleReadable("Hello, world!")
+        readable = await Stream.to_readable_async(test_input)
+        content = await readable.read()
+        self.assertEqual(content.decode('utf-8'), "Hello, world!")
+
+    async def test_to_readable_async_invalid_type(self):
+        test_input = 12345
+        with self.assertRaises(ValueError):
+            await Stream.to_readable_async(test_input)

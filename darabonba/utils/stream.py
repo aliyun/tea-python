@@ -1,11 +1,12 @@
 import json
 import re
+import asyncio
 from darabonba.event import Event
 from io import BytesIO, StringIO
 from typing import Any, BinaryIO
 
 # define WRITEABLE
-sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
+SSE_LINE_PATTERN = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
 class BaseStream:
     def __init__(self, size=1024):
@@ -45,6 +46,14 @@ class WRITABLE(metaclass=_WriteableMc):
 
 
 STREAM_CLASS = (READABLE, WRITABLE)
+
+class AsyncBytesIO:
+    def __init__(self, string_data):
+        self._buffer = BytesIO(string_data.encode('utf-8'))
+
+    async def read(self, n=-1):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._buffer.read, n)
 
 class Stream:
 
@@ -166,7 +175,6 @@ class Stream:
         bytes_content = Stream.read_as_bytes(stream)
         lines = bytes_content.splitlines()
 
-        sse_line_pattern = re.compile(r'^(?P<name>[^:]+): (?P<value>.+)$')
         current_event = Event()  # Initialize current event
     
         for line_item in lines:
@@ -175,7 +183,7 @@ class Stream:
             if not line.strip() or line.startswith(':'):
                 continue
             
-            match = sse_line_pattern.match(line)
+            match = SSE_LINE_PATTERN.match(line)
             if match:
                 name = match.group('name')
                 value = match.group('value')
@@ -206,7 +214,6 @@ class Stream:
         bytes_content = await Stream.read_as_bytes_async(stream)
         lines = bytes_content.splitlines()
 
-        sse_line_pattern = re.compile(r'^(?P<name>[^:]+): (?P<value>.+)$')
         event = Event()
 
         async for line_item in lines:
@@ -215,7 +222,7 @@ class Stream:
             if not line.strip() or line.startswith(':'):
                 continue
             
-            match = sse_line_pattern.match(line)
+            match = SSE_LINE_PATTERN.match(line)
             if match:
                 name = match.group('name')
                 value = match.group('value')
@@ -299,3 +306,17 @@ class Stream:
         elif not isinstance(value, WRITABLE):
             raise ValueError(f'The value is not a writeable')
         return value
+    
+    @staticmethod
+    async def to_readable_async(value: Any) -> AsyncBytesIO:
+        await asyncio.sleep(0)
+        
+        if isinstance(value, str):
+            return AsyncBytesIO(value)
+        elif isinstance(value, bytes):
+            return AsyncBytesIO(value.decode('utf-8'))
+        elif not isinstance(value, READABLE):  
+            raise ValueError("The value is not a readable")
+            
+        readable_content = await value.read()
+        return AsyncBytesIO(readable_content.decode('utf-8'))
