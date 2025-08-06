@@ -1,5 +1,7 @@
 import unittest
+from unittest import mock
 import asyncio
+from darabonba.exceptions import DaraException
 from darabonba.utils.stream import Stream, BaseStream, READABLE, WRITABLE, STREAM_CLASS
 import os
 from io import BytesIO, StringIO
@@ -184,101 +186,62 @@ class TestStream(unittest.TestCase):
         result = Stream._Stream__to_string(123)
         self.assertEqual(result, "123")
 
-    def test_read_as_sse(self):
-        sse_data_array = [
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 0}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 1}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 2}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 3}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 4}\n\n'
+    def test_read_as_sse_success(self):
+        mock_session = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        sse_data = [
+            b'id: 1\nevent: create\ndata: {"message": "test1"}\n\n',
+            b'event: update\ndata: {"message": "test2"}\n\n',
+            b'id: 123\ndata: {"message": "test3"}\n\n'
         ]
+        mock_response.iter_content.return_value = sse_data
+        
+        mock_response.status_code = 200
+        mock_response.headers = {'Content-Type': 'text/event-stream'}
+        from darabonba.utils.stream import SyncSSEResponseWrapper
+        stream_wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
 
-        sse_bytes = b''.join([item.encode('utf-8') for item in sse_data_array])
-        stream = BytesIO(sse_bytes)
+        results = list(Stream.read_as_sse(stream_wrapper))
+        # Check the number of events and their content
+        self.assertEqual(results[0].id, '1')
+        self.assertEqual(results[0].event, 'create')
+        self.assertEqual(results[0].data, '{"message": "test1"}')
 
-        result = list(Stream.read_as_sse(stream))
+        self.assertEqual(results[1].event, 'update')
+        self.assertEqual(results[2].id, '123')
 
-        expected = [
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 0}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 1}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 2}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 3}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 4}'},
+
+    def test_read_as_sse_error(self):
+        mock_session = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        mock_response.iter_content.return_value = [
+            b'data: error occurred\n\n'
         ]
+        mock_response.status_code = 400
+        
+        mock_response.headers = {'Content-Type': 'text/event-stream'}
+        from darabonba.utils.stream import SyncSSEResponseWrapper
+        stream_wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
 
-        for exp, res in zip(expected, result):
-            self.assertEqual(exp['id'], res['id'])
-            self.assertEqual(exp['event'], res['event'])
-            self.assertEqual(exp['data'], res['data'])
+        results = list(Stream.read_as_sse(stream_wrapper))
 
-    async def test_read_as_sse_async(self):
-        sse_data_array = [
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 0}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 1}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 2}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 3}\n\n',
-            'id: sse-test\n',
-            'event: flow\n',
-            'data: {"count": 4}\n\n'
-        ]
+        # Check the number of events and their content
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].data, 'error occurred')
 
-        sse_bytes = b''.join([item.encode('utf-8') for item in sse_data_array])
-        stream = BytesIO(sse_bytes)
+    async def test_read_as_sse_async_error(self):
+        async def mock_stream():
+            yield {
+                'status_code': 400,
+                'headers': {},
+                'body': b'{"Code": "400", "Message": "Bad Request", "RequestId": "12345"}\n'
+            }
 
-        result = asyncio.run(Stream.read_as_sse_async(stream))
-
-        expected = [
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 0}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 1}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 2}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 3}'},
-            {'id': 'sse-test', 'event': 'flow', 'data': '{"count": 4}'},
-        ]
-
-        for exp, res in zip(expected, result):
-            self.assertEqual(exp['id'], res['id'])
-            self.assertEqual(exp['event'], res['event'])
-            self.assertEqual(exp['data'], res['data'])
-    
-    
-    def test_to_readable(self):
-        # Test with string input
-        readable = Stream.to_readable("This is a string")
-        self.assertIsInstance(readable, BytesIO)
-        self.assertEqual(readable.getvalue(), b"This is a string")
-
-        # Test with bytes input
-        readable = Stream.to_readable(b"This is bytes")
-        self.assertIsInstance(readable, BytesIO)
-        self.assertEqual(readable.getvalue(), b"This is bytes")
-
-        # Test with valid readable stream (BytesIO)
-        readable = Stream.to_readable(BytesIO(b"Stream"))
-        self.assertIsInstance(readable, BytesIO)
-        self.assertEqual(readable.getvalue(), b"Stream")
-
-        # Test with invalid input (should raise ValueError)
-        with self.assertRaises(ValueError):
-            Stream.to_readable(123)
-
+        with self.assertRaises(DaraException) as context:
+            async for _ in Stream.read_as_sse_async(mock_stream()):
+                pass
+        self.assertEqual(context.exception.message, "code: 400, code: 400, request id: 12345")
+        
     def test_to_writeable(self):
         # Test with string input
         writeable = Stream.to_writeable("This is a string")

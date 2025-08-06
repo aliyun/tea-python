@@ -1,5 +1,5 @@
 import unittest
-from darabonba.url import Url as URL  # Replace 'your_module' with the name of the actual module
+from darabonba.url import Url as URL
 
 class TestURL(unittest.TestCase):
     

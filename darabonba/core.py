@@ -17,10 +17,9 @@ from darabonba.exceptions import RequiredArgumentException, RetryError
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
 from darabonba.response import DaraResponse
-from darabonba.utils.stream import BaseStream
+from darabonba.utils.stream import BaseStream, SSEResponseWrapper, SyncSSEResponseWrapper
 from darabonba.policy.retry import RetryOptions, RetryPolicyContext
 
-sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
@@ -58,6 +57,7 @@ class _TLSAdapter(adapters.HTTPAdapter):
         """Override the init_poolmanager method to set the SSL."""
         kwargs['ssl_context'] = self.ssl_context
         super().init_poolmanager(*args, **kwargs)
+
 
 class DaraCore:
     _sessions = {}
@@ -311,6 +311,165 @@ class DaraCore:
         response.response = resp
         return response
 
+
+    @staticmethod
+    async def async_do_sse_action(
+            request: DaraRequest,
+            runtime_option=None
+    ) -> DaraResponse:
+        runtime_option = runtime_option or {}
+
+        url = DaraCore.compose_url(request)
+        verify = not runtime_option.get('ignoreSSL', False)
+        tls_min_version = runtime_option.get('tlsMinVersion')
+        if isinstance(tls_min_version, Enum):
+            tls_min_version = tls_min_version.value
+
+        timeout = runtime_option.get('timeout')
+        connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
+        read_timeout = runtime_option.get('readTimeout') or timeout or DEFAULT_READ_TIMEOUT
+
+        connect_timeout, read_timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
+
+        proxy = None
+        if request.protocol.upper() == 'HTTP':
+            proxy = runtime_option.get('httpProxy')
+            if not proxy:
+                proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
+        elif request.protocol.upper() == 'HTTPS':
+            proxy = runtime_option.get('httpsProxy')
+            if not proxy:
+                proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
+
+        connector = None
+        ca_cert = certifi.where()
+        if ca_cert and request.protocol.upper() == 'HTTPS':
+            ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
+            ssl_context.load_verify_locations(ca_cert)
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+        else:
+            verify = False
+
+        timeout = aiohttp.ClientTimeout(
+            sock_read=read_timeout,
+            sock_connect=connect_timeout
+        )
+
+        session = aiohttp.ClientSession(connector=connector)
+        
+        body = b''
+        if isinstance(request.body, BaseStream):
+            for content in request.body:
+                body += content
+        elif isinstance(request.body, str):
+            body = request.body.encode('utf-8')
+        else:
+            body = request.body
+
+        try:
+            headers = request.headers.copy()
+            response = await session.request(
+                request.method, 
+                url,
+                data=body,
+                headers=headers,
+                ssl=verify,
+                proxy=proxy,
+                timeout=timeout
+            )
+            tea_resp = DaraResponse()
+            tea_resp.status_code = response.status
+            tea_resp.status_message = response.reason
+            tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
+            tea_resp.body = SSEResponseWrapper(session, response)
+            return tea_resp
+                        
+        except IOError as e:
+            await session.close()
+            raise RetryError(str(e))
+
+    @staticmethod
+    def do_sse_action(
+            request: DaraRequest,
+            runtime_option=None
+    ) -> DaraResponse:
+        url = DaraCore.compose_url(request)
+
+        runtime_option = runtime_option or {}
+
+        verify = not runtime_option.get('ignoreSSL', False)
+        tls_min_version = runtime_option.get('tlsMinVersion')
+        if isinstance(tls_min_version, Enum):
+            tls_min_version = tls_min_version.value
+
+        if verify:
+            verify = runtime_option.get('ca', True) if runtime_option.get('ca', True) is not None else True
+        cert = runtime_option.get('cert', None)
+
+        timeout = runtime_option.get('timeout')
+        connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
+        read_timeout = runtime_option.get('readTimeout') or timeout or DEFAULT_READ_TIMEOUT
+
+        timeout = (int(connect_timeout) / 1000, int(read_timeout) / 1000)
+
+        if isinstance(request.body, str):
+            request.body = request.body.encode('utf-8')
+
+        p = PreparedRequest()
+        p.prepare(
+            method=request.method.upper(),
+            url=url,
+            data=request.body,
+            headers=request.headers,
+        )
+
+        proxies = {}
+        http_proxy = runtime_option.get('httpProxy')
+        https_proxy = runtime_option.get('httpsProxy')
+        no_proxy = runtime_option.get('noProxy')
+
+        if not http_proxy:
+            http_proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
+        if not https_proxy:
+            https_proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
+
+        if http_proxy:
+            proxies['http'] = http_proxy
+        if https_proxy:
+            proxies['https'] = https_proxy
+        if no_proxy:
+            proxies['no_proxy'] = no_proxy
+
+        host = request.headers.get('host')
+        host = host.rstrip('/') if host else ''
+
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}'
+        session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
+                                    tls_min_version=tls_min_version, verify=verify)
+        try:
+            resp = session.send(
+                p,
+                proxies=proxies,
+                timeout=timeout,
+                verify=verify,
+                cert=cert,
+                stream=True
+            )
+        except IOError as e:
+            raise RetryError(str(e))
+
+        debug = runtime_option.get('debug') or os.getenv('DEBUG')
+        if debug and debug.lower() == 'sdk':
+            DaraCore._do_http_debug(p, resp)
+
+        response = DaraResponse()
+        response.status_message = resp.reason
+        response.status_code = resp.status_code
+        response.headers = {k.lower(): v for k, v in resp.headers.items()}
+        response.body = SyncSSEResponseWrapper(session, resp)
+        
+        return response
     @staticmethod
     def get_response_body(resp) -> str:
         return resp.content.decode("utf-8")

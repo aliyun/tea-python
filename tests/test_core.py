@@ -6,13 +6,14 @@ import unittest
 import ssl
 import io
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from requests import PreparedRequest 
-from unittest import mock
+from requests import PreparedRequest
+from unittest.mock import Mock, patch, MagicMock
+from darabonba.utils.stream import BaseStream, SyncSSEResponseWrapper, SSEResponseWrapper
 from darabonba.core import DaraCore, _TLSAdapter, TLSVersion, _ModelEncoder
 from darabonba.exceptions import RetryError, DaraException
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
-from darabonba.utils.stream import BaseStream
+from darabonba.response import DaraResponse
 from darabonba.policy.retry import RetryPolicyContext, RetryOptions, RetryCondition, BackoffPolicy
 
 MAX_DELAY_TIME = 120 * 1000
@@ -139,7 +140,7 @@ class TestCore(unittest.TestCase):
         server.start()
     
     def test_default_with_dara_model(self):
-        mock_model = mock.Mock(spec=DaraModel)
+        mock_model = Mock(spec=DaraModel)
         mock_model.to_map.return_value = {'key': 'value'}
         
         encoder = _ModelEncoder()
@@ -211,19 +212,19 @@ class TestCore(unittest.TestCase):
         self.assertEqual(result, '"bytes data"')
     
     def test_set_tls_minimum_version_with_tls_v1(self):
-        context = mock.MagicMock()
+        context = MagicMock()
         result = DaraCore._set_tls_minimum_version(context, 'TLSv1')
         self.assertEqual(context.minimum_version, ssl.TLSVersion.TLSv1)
         self.assertEqual(result, context)
 
     def test_set_tls_minimum_version_with_tls_v1_1(self):
-        context = mock.MagicMock()
+        context = MagicMock()
         result = DaraCore._set_tls_minimum_version(context, 'TLSv1.1')
         self.assertEqual(context.minimum_version, ssl.TLSVersion.TLSv1_1)
         self.assertEqual(result, context)
 
     def test_set_tls_minimum_version_with_tls_v1_2(self):
-        context = mock.MagicMock()
+        context = MagicMock()
         result = DaraCore._set_tls_minimum_version(context, 'TLSv1.2')
         self.assertEqual(context.minimum_version, ssl.TLSVersion.TLSv1_2)
         self.assertEqual(result, context)
@@ -316,7 +317,7 @@ class TestCore(unittest.TestCase):
             DaraCore.do_action(request)
 
     def test_get_response_body_with_empty_content(self):
-        mock_resp = mock.Mock()
+        mock_resp = Mock()
         mock_resp.content = b''
         self.assertEqual(DaraCore.get_response_body(mock_resp), '')
 
@@ -675,48 +676,48 @@ class TestCore(unittest.TestCase):
     
     def test_get_adapter(self):
         # Test TLSv1
-        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
-            mock_context = mock.Mock()
+        with patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = Mock()
             mock_create_default_context.return_value = mock_context
 
             adapter = DaraCore.get_adapter('https', 'TLSv1')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1)
 
         # Test TLSv1.1
-        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
-            mock_context = mock.Mock()
+        with patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = Mock()
             mock_create_default_context.return_value = mock_context
 
             adapter = DaraCore.get_adapter('https', 'TLSv1.1')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_1)
 
         # Test TLSv1.2
-        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
-            mock_context = mock.Mock()
+        with patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = Mock()
             mock_create_default_context.return_value = mock_context
 
             adapter = DaraCore.get_adapter('https', 'TLSv1.2')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_2)
 
         # Test TLSv1.3
-        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
-            mock_context = mock.Mock()
+        with patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = Mock()
             mock_create_default_context.return_value = mock_context
 
             adapter = DaraCore.get_adapter('https', 'TLSv1.3')
             self.assertEqual(mock_context.minimum_version, ssl.TLSVersion.TLSv1_3)
 
         # Test invalid TLS version
-        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
-            mock_context = mock.Mock()
+        with patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = Mock()
             mock_create_default_context.return_value = mock_context
 
             adapter = DaraCore.get_adapter('https', 'TLSv1.4')
             self.assertNotIsInstance(mock_context.minimum_version, ssl.TLSVersion)
 
         # Test HTTP protocol
-        with mock.patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
-            mock_context = mock.Mock()
+        with patch('darabonba.core.ssl.create_default_context') as mock_create_default_context:
+            mock_context = Mock()
             mock_create_default_context.return_value = mock_context
 
             adapter = DaraCore.get_adapter('http', 'TLSv1.2')
@@ -729,8 +730,8 @@ class TestCore(unittest.TestCase):
         session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
 
         # Test with TLSv1.2
-        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
-            mock_adapter = mock.Mock()
+        with patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
+            mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
             session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
@@ -739,8 +740,8 @@ class TestCore(unittest.TestCase):
             self.assertEqual(session, DaraCore._sessions[session_key])
 
         # Test with TLSv1.3
-        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
-            mock_adapter = mock.Mock()
+        with patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
+            mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
             session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.3')
@@ -752,8 +753,8 @@ class TestCore(unittest.TestCase):
         request.protocol = "http"
         session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
 
-        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
-            mock_adapter = mock.Mock()
+        with patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
+            mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
             session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
@@ -762,8 +763,8 @@ class TestCore(unittest.TestCase):
             self.assertEqual(session, DaraCore._sessions[session_key])
 
         # Test session caching
-        with mock.patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
-            mock_adapter = mock.Mock()
+        with patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
+            mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
             session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
@@ -1203,3 +1204,203 @@ class TestRetry(unittest.TestCase):
         })
         backoffTime = DaraCore.get_backoff_time(option, ctx)
         self.assertEqual(backoffTime, 1000)
+        
+class TestSSEActions(unittest.TestCase):
+    def setUp(self):
+        # 创建测试用的 DaraRequest
+        self.request = DaraRequest()
+        self.request.protocol = 'https'
+        self.request.method = 'GET'
+        self.request.host = 'example.com'
+        self.request.pathname = '/sse'
+        self.request.headers = {'host': 'example.com'}
+        
+        # 创建测试用的 runtime_option
+        self.runtime_option = {
+            'connectTimeout': 5000,
+            'readTimeout': 10000
+        }
+
+    @patch('darabonba.core.Session')
+    @patch('darabonba.core.DaraCore._get_session')
+    def test_do_sse_action(self, mock_get_session, mock_session_class):
+        # 准备模拟对象
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {'content-type': 'text/event-stream'}
+        
+        # 模拟 SSE 数据流
+        sse_data = [
+            b'data: {"message": "test1"}\n\n',
+            b'event: update\ndata: {"message": "test2"}\n\n',
+            b'id: 123\ndata: {"message": "test3"}\n\n'
+        ]
+        
+        mock_response.iter_content.return_value = sse_data
+        mock_response.content = b''.join(sse_data)
+        
+        mock_session.send.return_value = mock_response
+        mock_get_session.return_value = mock_session
+        
+        # 调用被测试的方法
+        result = DaraCore.do_sse_action(self.request, self.runtime_option)
+        
+        # 验证返回值类型
+        self.assertIsInstance(result, DaraResponse)
+        self.assertIsInstance(result.body, SyncSSEResponseWrapper)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.status_message, 'OK')
+        self.assertEqual(result.headers['content-type'], 'text/event-stream')
+
+    @patch('darabonba.core.Session')
+    @patch('darabonba.core.DaraCore._get_session')
+    def test_do_sse_action_with_error(self, mock_get_session, mock_session_class):
+        # 模拟请求异常
+        mock_session = Mock()
+        mock_session.send.side_effect = IOError("Network error")
+        mock_get_session.return_value = mock_session
+        
+        # 验证异常被正确抛出
+        with self.assertRaises(Exception) as context:
+            DaraCore.do_sse_action(self.request, self.runtime_option)
+        
+        self.assertIn('Network error', str(context.exception))
+
+    def test_do_sse_action_stream_iteration(self):
+        # 测试 SyncSSEResponseWrapper 的迭代功能
+        mock_session = Mock()
+        mock_response = Mock()
+        
+        # 模拟 SSE 数据流
+        sse_chunks = [
+            b'data: first message\n\n',
+            b'event: test\ndata: second message\n\n',
+            b'id: 1\ndata: third message\n\n'
+        ]
+        
+        mock_response.iter_content.return_value = sse_chunks
+        mock_response.content = b''.join(sse_chunks)
+        mock_response.status_code = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {'content-type': 'text/event-stream'}
+        
+        wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
+        
+        # 验证迭代器功能
+        chunks = list(wrapper)
+        self.assertEqual(len(chunks), 3)
+        self.assertEqual(chunks[0], b'data: first message\n\n')
+        self.assertEqual(chunks[1], b'event: test\ndata: second message\n\n')
+        self.assertEqual(chunks[2], b'id: 1\ndata: third message\n\n')
+
+    @patch('aiohttp.ClientSession')
+    def test_async_do_sse_action(self, mock_client_session):
+        # 创建模拟的 aiohttp 响应
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {'content-type': 'text/event-stream'}
+        
+        # 模拟异步内容迭代
+        chunks = [
+            b'data: async first\n\n',
+            b'event: async\ndata: async second\n\n'
+        ]
+        
+        async def mock_iter_chunked(size):
+            for chunk in chunks:
+                yield chunk
+        
+        # 为模拟对象添加 content 属性
+        mock_content = Mock()
+        mock_content.iter_chunked = mock_iter_chunked
+        mock_response.content = mock_content
+        
+        # 设置 ClientSession 模拟，使其返回一个协程
+        async def mock_request(*args, **kwargs):
+            return mock_response
+            
+        mock_session = Mock()
+        mock_session.request = mock_request
+        mock_client_session.return_value = mock_session
+        
+        # 异步测试需要在事件循环中运行
+        async def run_test():
+            result = await DaraCore.async_do_sse_action(self.request, self.runtime_option)
+            
+            # 验证返回值
+            self.assertIsInstance(result, DaraResponse)
+            self.assertIsInstance(result.body, SSEResponseWrapper)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.status_message, 'OK')
+            self.assertEqual(result.headers['content-type'], 'text/event-stream')
+        
+        # 运行异步测试
+        asyncio.run(run_test())
+
+    @patch('darabonba.core.Session')
+    @patch('darabonba.core.DaraCore._get_session')
+    def test_do_sse_action_with_error(self, mock_get_session, mock_session_class):
+        # 模拟请求异常
+        mock_session = Mock()
+        mock_session.send.side_effect = IOError("Network error")
+        mock_get_session.return_value = mock_session
+        
+        # 验证异常被正确抛出
+        with self.assertRaises(Exception) as context:
+            DaraCore.do_sse_action(self.request, self.runtime_option)
+        
+        self.assertIn('Network error', str(context.exception))
+
+    def test_sync_sse_wrapper_close(self):
+        # 测试 SyncSSEResponseWrapper 的 close 方法
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.close = Mock()
+        mock_session.close = Mock()
+        
+        wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
+        
+        # 验证 close 方法
+        wrapper.close()
+        mock_response.close.assert_called_once()
+        mock_session.close.assert_called_once()
+        
+        # 验证重复关闭不会出错
+        wrapper.close()  # 应该不会再次调用 close
+
+    async def test_async_sse_wrapper_close(self):
+        # 测试 SSEResponseWrapper 的 close 方法
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.close = Mock()
+        mock_session.close = Mock()
+        
+        wrapper = SSEResponseWrapper(mock_session, mock_response)
+        
+        # 验证异步 close 方法
+        await wrapper.close()
+        mock_response.close.assert_called_once()
+        mock_session.close.assert_called_once()
+        
+        # 验证重复关闭不会出错
+        await wrapper.close()  # 应该不会再次调用 close
+
+    def test_sse_wrapper_read(self):
+        # 测试 SyncSSEResponseWrapper 的 read 方法
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.content = b'test content'
+        mock_response.close = Mock()
+        mock_session.close = Mock()
+        
+        wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
+        
+        # 验证 read 方法
+        content = wrapper.read()
+        self.assertEqual(content, b'test content')
+        mock_response.close.assert_called_once()
+        mock_session.close.assert_called_once()
+
