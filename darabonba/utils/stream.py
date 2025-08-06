@@ -1,8 +1,10 @@
 import json
 import re
+import aiohttp
 from darabonba.event import Event
+
 from io import BytesIO, StringIO
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, Generator, AsyncGenerator, Dict
 
 # define WRITEABLE
 sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
@@ -33,6 +35,67 @@ class _ReadableMc(type):
 class READABLE(metaclass=_ReadableMc):
     pass
 
+class SyncSSEResponseWrapper:
+    def __init__(self, session, response):
+        self.session = session
+        self.response = response
+        self._closed = False
+    
+    def close(self):
+        if not self._closed:
+            self.response.close()
+            self.session.close()
+            self._closed = True
+    
+    def __iter__(self):
+        return self._read_chunks()
+    
+    def _read_chunks(self):
+        try:
+            for chunk in self.response.iter_content(chunk_size=8192):
+                yield chunk
+        finally:
+            self.close()
+    
+    def read(self) -> bytes:
+        try:
+            return self.response.content
+        finally:
+            self.close()
+
+class SSEResponseWrapper:
+    def __init__(self, session: aiohttp.ClientSession, response: aiohttp.ClientResponse):
+        self.session = session
+        self.response = response
+        self._closed = False
+        self._content_cache = None
+    
+    async def close(self):
+        if not self._closed:
+            self.response.close()
+            await self.session.close()
+            self._closed = True
+    
+    def __aiter__(self):
+        return self._read_chunks()
+    
+    async def _read_chunks(self):
+        try:
+            async for chunk in self.response.content.iter_chunked(8192):
+                yield chunk
+        finally:
+            await self.close()
+    
+    async def read(self) -> bytes:
+        if self._content_cache is not None:
+            return self._content_cache
+        
+        try:
+            content = await self.response.read()
+            self._content_cache = content
+            return content
+        finally:
+            await self.close()
 
 class _WriteableMc(type):
     def __instancecheck__(self, instance):
@@ -162,84 +225,60 @@ class Stream:
         return Stream.__to_string(buff)
     
     @staticmethod
-    def read_as_sse(stream):
-        bytes_content = Stream.read_as_bytes(stream)
-        lines = bytes_content.splitlines()
-
-        sse_line_pattern = re.compile(r'^(?P<name>[^:]+): (?P<value>.+)$')
-        current_event = Event()  # Initialize current event
-    
-        for line_item in lines:
-            line = line_item.decode('utf-8')
-
-            if not line.strip() or line.startswith(':'):
-                continue
-            
-            match = sse_line_pattern.match(line)
-            if match:
-                name = match.group('name')
-                value = match.group('value')
-                
-                if name == 'event':
-                    current_event.event = value
-                elif name == 'id':
-                    current_event.id = value
-                elif name == 'data':
-                    current_event.data = value
-                elif name == 'retry':
-                    try:
-                        current_event.retry = int(value)
-                    except ValueError:
-                        pass
-
-                # If data is present, yield the event since data line indicates completion of an event typically
-            if current_event.data is not None:
-                yield {
-                    'id': current_event.id,
-                    'event': current_event.event,
-                    'data': current_event.data
-                }
-                current_event = Event() 
+    def read_as_sse(stream) -> Generator[Event, None, None]:
+        """
+        Read events from SSE stream (synchronous version)
+        """
+        if isinstance(stream, SyncSSEResponseWrapper):
+            for event in Stream._parse_sse_stream_sync(stream):
+                yield Event(
+                    id=event.get('id'),
+                    data=event.get('data'),
+                    event=event.get('event'),
+                    retry=event.get('retry'))
+        elif hasattr(stream, 'iter_content'):
+            # Read directly from the content stream of requests response object
+            for event in Stream._parse_sse_stream_from_response_sync(stream):
+                yield Event(
+                    id=event.get('id'),
+                    data=event.get('data'),
+                    event=event.get('event'),
+                    retry=event.get('retry'))
+        else:
+            for event in Stream._parse_sse_stream_sync(stream):
+                yield Event(
+                    id=event.get('id'),
+                    data=event.get('data'),
+                    event=event.get('event'),
+                    retry=event.get('retry'))
 
     @staticmethod
-    async def read_as_sse_async(stream):
-        bytes_content = await Stream.read_as_bytes_async(stream)
-        lines = bytes_content.splitlines()
-
-        sse_line_pattern = re.compile(r'^(?P<name>[^:]+): (?P<value>.+)$')
-        event = Event()
-
-        async for line_item in lines:
-            line = line_item.decode('utf-8')
-
-            if not line.strip() or line.startswith(':'):
-                continue
-            
-            match = sse_line_pattern.match(line)
-            if match:
-                name = match.group('name')
-                value = match.group('value')
-                
-                if name == 'event':
-                    current_event.event = value
-                elif name == 'id':
-                    current_event.id = value
-                elif name == 'data':
-                    current_event.data = value
-                elif name == 'retry':
-                    try:
-                        current_event.retry = int(value)
-                    except ValueError:
-                        pass
-
-                # If data is present, yield the event since data line indicates completion of an event typically
-            if current_event.data is not None:
-                yield {
-                    'id': current_event.id,
-                    'event': current_event.event,
-                    'data': current_event.data
-                }
-                current_event = Event() 
+    async def read_as_sse_async(stream) -> AsyncGenerator[Event, None]:
+        """
+        Read events from SSE stream
+        """
+        if isinstance(stream, SSEResponseWrapper):
+            async for event in Stream._parse_sse_stream(stream):
+                yield Event(
+                    id = event.get('id'),
+                    data = event.get('data'),
+                    event= event.get('event'),
+                    retry = event.get('retry'))
+        elif hasattr(stream, 'content'):
+            # Read directly from the content stream of aiohttp response object
+            async for event in Stream._parse_sse_stream_from_response(stream):
+                yield Event(
+                    id = event.get('id'),
+                    data = event.get('data'),
+                    event= event.get('event'),
+                    retry = event.get('retry'))
+        else:
+            async for event in Stream._parse_sse_stream(stream):
+                yield Event(
+                    id = event.get('id'),
+                    data = event.get('data'),
+                    event= event.get('event'),
+                    retry = event.get('retry'))
 
     def read(self, size=None):
         if size is None:
@@ -299,3 +338,279 @@ class Stream:
         elif not isinstance(value, WRITABLE):
             raise ValueError(f'The value is not a writeable')
         return value
+    
+    @staticmethod
+    async def _parse_sse_stream(wrapper: SSEResponseWrapper) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Analyze SSE stream data
+        """
+        buffer = ""
+        current_event = Event()
+
+        async for chunk in wrapper:
+            # Decoding byte data into strings
+            try:
+                chunk_str = chunk.decode('utf-8')
+            except UnicodeDecodeError:
+                # If decoding fails, skip this chunk
+                continue
+            
+            buffer += chunk_str
+            
+            # Split processing by row
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.rstrip('\r')  # Remove \r
+                
+                if not line.strip():
+                    if current_event.data is not None:
+                        yield {
+                            'id': current_event.id,
+                            'event': current_event.event or 'message',
+                            'data': current_event.data,
+                            'retry': current_event.retry
+                        }
+                        current_event = Event()
+                    continue
+                
+                if line.startswith(':'):
+                    continue
+                
+                if ':' in line:
+                    match = sse_line_pattern.match(line)
+                    if match:
+                        name = match.group('name').strip()
+                        value = match.group('value').strip()
+                        
+                        if name == 'event':
+                            current_event.event = value
+                        elif name == 'id':
+                            current_event.id = value
+                        elif name == 'data':
+                            if current_event.data is None:
+                                current_event.data = value
+                            else:
+                                current_event.data += '\n' + value
+                        elif name == 'retry':
+                            try:
+                                current_event.retry = int(value)
+                            except ValueError:
+                                pass
+                else:
+                    if current_event.data is None:
+                        current_event.data = line
+                    else:
+                        current_event.data += '\n' + line
+
+        if buffer.strip() and current_event.data is not None:
+            yield {
+                'id': current_event.id,
+                'event': current_event.event or 'message',
+                'data': current_event.data,
+                'retry': current_event.retry
+            }
+
+    @staticmethod
+    async def _parse_sse_stream_from_response(response) -> AsyncGenerator[Dict[str, Any], None]:
+        buffer = ""
+        current_event = Event()
+
+        async for chunk in response.content.iter_chunked(8192):
+            try:
+                chunk_str = chunk.decode('utf-8')
+            except UnicodeDecodeError:
+                continue
+            
+            buffer += chunk_str
+            
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.rstrip('\r')
+                
+                if not line.strip():
+                    if current_event.data is not None:
+                        yield {
+                            'id': current_event.id,
+                            'event': current_event.event or 'message',
+                            'data': current_event.data,
+                            'retry': current_event.retry
+                        }
+                        current_event = Event()
+                    continue
+                
+                if line.startswith(':'):
+                    continue
+                
+                if ':' in line:
+                    match = sse_line_pattern.match(line)
+                    if match:
+                        name = match.group('name').strip()
+                        value = match.group('value').strip()
+                        
+                        if name == 'event':
+                            current_event.event = value
+                        elif name == 'id':
+                            current_event.id = value
+                        elif name == 'data':
+                            if current_event.data is None:
+                                current_event.data = value
+                            else:
+                                current_event.data += '\n' + value
+                        elif name == 'retry':
+                            try:
+                                current_event.retry = int(value)
+                            except ValueError:
+                                pass
+                else:
+                    if current_event.data is None:
+                        current_event.data = line
+                    else:
+                        current_event.data += '\n' + line
+
+        if buffer.strip() and current_event.data is not None:
+            yield {
+                'id': current_event.id,
+                'event': current_event.event or 'message',
+                'data': current_event.data,
+                'retry': current_event.retry
+            }
+    
+    @staticmethod
+    def _parse_sse_stream_sync(wrapper: SyncSSEResponseWrapper) -> Generator[Dict[str, Any], None, None]:
+        """
+        Analyze SSE stream data (synchronous version)
+        """
+        buffer = ""
+        current_event = Event()
+
+        for chunk in wrapper:
+            # Decoding byte data into strings
+            try:
+                chunk_str = chunk.decode('utf-8')
+            except UnicodeDecodeError:
+                # If decoding fails, skip this chunk
+                continue
+            
+            buffer += chunk_str
+            
+            # Split processing by row
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.rstrip('\r')  # Remove \r
+                
+                if not line.strip():
+                    if current_event.data is not None:
+                        yield {
+                            'id': current_event.id,
+                            'event': current_event.event or 'message',
+                            'data': current_event.data,
+                            'retry': current_event.retry
+                        }
+                        current_event = Event()
+                    continue
+                
+                # Skip comment lines
+                if line.startswith(':'):
+                    continue
+                
+                if ':' in line:
+                    match = sse_line_pattern.match(line)
+                    if match:
+                        name = match.group('name').strip()
+                        value = match.group('value').strip()
+                        
+                        if name == 'event':
+                            current_event.event = value
+                        elif name == 'id':
+                            current_event.id = value
+                        elif name == 'data':
+                            if current_event.data is None:
+                                current_event.data = value
+                            else:
+                                current_event.data += '\n' + value
+                        elif name == 'retry':
+                            try:
+                                current_event.retry = int(value)
+                            except ValueError:
+                                pass
+                else:
+                    if current_event.data is None:
+                        current_event.data = line
+                    else:
+                        current_event.data += '\n' + line
+
+        if buffer.strip() and current_event.data is not None:
+            yield {
+                'id': current_event.id,
+                'event': current_event.event or 'message',
+                'data': current_event.data,
+                'retry': current_event.retry
+            }
+
+    @staticmethod
+    def _parse_sse_stream_from_response_sync(response) -> Generator[Dict[str, Any], None, None]:
+        """
+        Parse SSE stream from requests response object (synchronous version)
+        """
+        buffer = ""
+        current_event = Event()
+
+        for chunk in response.iter_content(chunk_size=8192):
+            try:
+                chunk_str = chunk.decode('utf-8')
+            except UnicodeDecodeError:
+                continue
+            
+            buffer += chunk_str
+            
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.rstrip('\r')
+                
+                if not line.strip():
+                    if current_event.data is not None:
+                        yield {
+                            'id': current_event.id,
+                            'event': current_event.event or 'message',
+                            'data': current_event.data,
+                            'retry': current_event.retry
+                        }
+                        current_event = Event()
+                    continue
+                
+                if line.startswith(':'):
+                    continue
+                
+                if ':' in line:
+                    match = sse_line_pattern.match(line)
+                    if match:
+                        name = match.group('name').strip()
+                        value = match.group('value').strip()
+                        
+                        if name == 'event':
+                            current_event.event = value
+                        elif name == 'id':
+                            current_event.id = value
+                        elif name == 'data':
+                            if current_event.data is None:
+                                current_event.data = value
+                            else:
+                                current_event.data += '\n' + value
+                        elif name == 'retry':
+                            try:
+                                current_event.retry = int(value)
+                            except ValueError:
+                                pass
+                else:
+                    if current_event.data is None:
+                        current_event.data = line
+                    else:
+                        current_event.data += '\n' + line
+
+        if buffer.strip() and current_event.data is not None:
+            yield {
+                'id': current_event.id,
+                'event': current_event.event or 'message',
+                'data': current_event.data,
+                'retry': current_event.retry
+            }
