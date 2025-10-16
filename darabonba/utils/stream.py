@@ -430,7 +430,6 @@ class Stream:
                         except (ValueError, TypeError):
                             pass
 
-        # 最终 flush
         if current_event.data is not None:
             yield {
                 'id': current_event.id,
