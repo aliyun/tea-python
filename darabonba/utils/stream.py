@@ -1,6 +1,7 @@
 import json
 import re
 import aiohttp
+import codecs
 from darabonba.event import Event
 
 from io import BytesIO, StringIO
@@ -346,18 +347,23 @@ class Stream:
         """
         buffer = ""
         current_event = Event()
-
+        
+        MAX_BUFFER_SIZE = 1024 * 1024  # 1MB
+        dec = codecs.getincrementaldecoder('utf-8')()
+        
         async for chunk in wrapper:
-            # Decoding byte data into strings
             try:
-                chunk_str = chunk.decode('utf-8')
+                chunk_str = dec.decode(chunk)
             except UnicodeDecodeError:
-                # If decoding fails, skip this chunk
+                chunk_str = chunk.decode('utf-8', errors='replace')
+            
+            if len(buffer) + len(chunk_str) > MAX_BUFFER_SIZE:
+                import logging
+                logging.warning("SSE stream data too large, skipping chunk")
                 continue
-            
+                
             buffer += chunk_str
-            
-            # Split processing by row
+
             while '\n' in buffer:
                 line, buffer = buffer.split('\n', 1)
                 line = line.rstrip('\r')  # Remove \r
