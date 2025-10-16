@@ -340,29 +340,27 @@ class Stream:
         return value
     
     @staticmethod
-    async def _parse_sse_stream(wrapper: SSEResponseWrapper) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Analyze SSE stream data
-        """
+    async def _parse_sse_stream(wrapper) -> AsyncGenerator[Dict[str, Any], None]:
         buffer = ""
         current_event = Event()
 
         async for chunk in wrapper:
-            # Decoding byte data into strings
-            try:
-                chunk_str = chunk.decode('utf-8')
-            except UnicodeDecodeError:
-                # If decoding fails, skip this chunk
-                continue
-            
+            # 支持 bytes 或 str
+            if isinstance(chunk, bytes):
+                # 使用 replace 防止因单个非法字节导致整块丢失
+                chunk_str = chunk.decode('utf-8', errors='replace')
+            else:
+                chunk_str = chunk
+
             buffer += chunk_str
-            
-            # Split processing by row
+
+            # 逐行处理（保留可能的 CR）
             while '\n' in buffer:
                 line, buffer = buffer.split('\n', 1)
-                line = line.rstrip('\r')  # Remove \r
-                
-                if not line.strip():
+                line = line.rstrip('\r')
+
+                if not line:
+                    # 空行 -> dispatch event（只有 data 非 None 才算有事件）
                     if current_event.data is not None:
                         yield {
                             'id': current_event.id,
@@ -372,43 +370,75 @@ class Stream:
                         }
                         current_event = Event()
                     continue
-                
-                if line.startswith(':'):
-                    continue
-                
-                if ':' in line:
-                    match = sse_line_pattern.match(line)
-                    if match:
-                        name = match.group('name').strip()
-                        value = match.group('value').strip()
-                        
-                        if name == 'event':
-                            current_event.event = value
-                        elif name == 'id':
-                            current_event.id = value
-                        elif name == 'data':
-                            if current_event.data is None:
-                                current_event.data = value
-                            else:
-                                current_event.data += '\n' + value
-                        elif name == 'retry':
-                            try:
-                                current_event.retry = int(value)
-                            except ValueError:
-                                pass
-                else:
-                    if current_event.data is None:
-                        current_event.data = line
-                    else:
-                        current_event.data += '\n' + line
 
-        if buffer.strip() and current_event.data is not None:
+                if line.startswith(':'):
+                    # 注释行，忽略
+                    continue
+
+                # 解析 name 和 value：若无冒号，value 为空字符串
+                m = sse_line_pattern.match(line)
+                if not m:
+                    # 格式异常，忽略
+                    continue
+
+                name = m.group('name').strip()
+                value = m.group('value') or ''
+                # 注意：value 保持原样（不再 strip()，SSE 规范保留前导空格？）
+                # 如果需要去掉首个空格可用 value.lstrip(' ') 但要按规范处理
+
+                if name == 'event':
+                    current_event.event = value
+                elif name == 'id':
+                    current_event.id = value
+                elif name == 'data':
+                    if current_event.data is None:
+                        current_event.data = value
+                    else:
+                        current_event.data += '\n' + value
+                elif name == 'retry':
+                    try:
+                        current_event.retry = int(value)
+                    except (ValueError, TypeError):
+                        # 忽略无效 retry
+                        pass
+                else:
+                    # 未识别字段，按需忽略或记录
+                    continue
+
+        # 处理剩余缓冲区（最后没有以换行结束的那一行）
+        if buffer:
+            # 可能剩余多行（若没有 '\n' 则只有一行）
+            # 以同样逻辑处理最后一行（不产生额外换行）
+            line = buffer.rstrip('\r')
+            if line and not line.startswith(':'):
+                m = sse_line_pattern.match(line)
+                if m:
+                    name = m.group('name').strip()
+                    value = m.group('value') or ''
+                    if name == 'event':
+                        current_event.event = value
+                    elif name == 'id':
+                        current_event.id = value
+                    elif name == 'data':
+                        if current_event.data is None:
+                            current_event.data = value
+                        else:
+                            current_event.data += '\n' + value
+                    elif name == 'retry':
+                        try:
+                            current_event.retry = int(value)
+                        except (ValueError, TypeError):
+                            pass
+
+        # 最终 flush
+        if current_event.data is not None:
             yield {
                 'id': current_event.id,
                 'event': current_event.event or 'message',
                 'data': current_event.data,
                 'retry': current_event.retry
             }
+            
 
     @staticmethod
     async def _parse_sse_stream_from_response(response) -> AsyncGenerator[Dict[str, Any], None]:
