@@ -1,13 +1,22 @@
 import asyncio
 import threading
 import time
-import pytest
 import unittest
 import ssl
 import io
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from requests import PreparedRequest
 from unittest.mock import Mock, patch, MagicMock
+
+# For Python < 3.8, we need to import AsyncMock from unittest.mock
+try:
+    from unittest.mock import AsyncMock
+except ImportError:
+    # For older Python versions, we can create our own simple AsyncMock
+    class AsyncMock(MagicMock):
+        async def __call__(self, *args, **kwargs):
+            return super(AsyncMock, self).__call__(*args, **kwargs)
+
 from darabonba.utils.stream import BaseStream, SyncSSEResponseWrapper, SSEResponseWrapper
 from darabonba.core import DaraCore, _TLSAdapter, TLSVersion, _ModelEncoder
 from darabonba.exceptions import RetryError, DaraException
@@ -18,10 +27,6 @@ from darabonba.policy.retry import RetryPolicyContext, RetryOptions, RetryCondit
 
 MAX_DELAY_TIME = 120 * 1000
 MIN_DELAY_TIME = 100
-@pytest.fixture(scope='session', autouse=True)
-def asyncio_setup():
-    loop = asyncio.get_event_loop()
-    yield loop
 
 # Mock HTTP request handler
 class Request(BaseHTTPRequestHandler):
@@ -118,14 +123,19 @@ class BaseUserResponse(DaraModel):
         return self
         
 class TestModel(DaraModel):
-    def __init__(self):
-        self.test_a = 'a'
-        self.test_b = 'b'
+    def __init__(self, test_a='a', test_b='b'):
+        super().__init__()
+        self.test_a = test_a
+        self.test_b = test_b
 
     def validate(self):
         raise ValueError('test validate')
 
     def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+            
         return {
             'test_a': self.test_a,
             'test_b': self.test_b
@@ -386,7 +396,44 @@ class TestCore(unittest.TestCase):
         asyncio.run(DaraCore.sleep_async(1000))
         elapsed_time = time.time() - start_time
         self.assertTrue(0.99 <= elapsed_time <= 1.01)
-    
+
+    def test_do_action_with_cert(self):
+        """Test do_action with cert parameter"""
+        request = DaraRequest()
+        request.headers['host'] = "www.alibabacloud.com"
+        request.pathname = "/s/zh"
+        request.protocol = "https"  # Make sure we're testing HTTPS
+        
+        # Test with cert as a tuple (cert_file, key_file)
+        option = {
+            "cert": ("/dev/null", "/dev/null")  # Use /dev/null which always exists
+        }
+        
+        # Prepare mock objects
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {'content-type': 'application/json'}
+        mock_response.content = b'{"result": "test"}'
+        
+        mock_session.send.return_value = mock_response
+        
+        with patch('darabonba.core.DaraCore._get_session', return_value=mock_session):
+            # Call the method being tested
+            result = DaraCore.do_action(request, option)
+            
+            # Verify that send was called with the cert parameter
+            mock_session.send.assert_called_once()
+            call_args = mock_session.send.call_args
+            self.assertIn('cert', call_args[1])
+            self.assertEqual(call_args[1]['cert'], ("/dev/null", "/dev/null"))
+            
+            # Verify the response
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.status_message, 'OK')
+            self.assertEqual(result.body, b'{"result": "test"}')
+
     def test_do_action(self):
         request = DaraRequest()
         request.headers['host'] = "www.alibabacloud.com"
@@ -478,7 +525,6 @@ class TestCore(unittest.TestCase):
             assert False
         except Exception as e:
             self.assertIsInstance(e, RetryError)
-        
     def test_async_do_action(self):
         request = DaraRequest()
         request.headers['host'] = "www.alibabacloud.com"
@@ -575,6 +621,296 @@ class TestCore(unittest.TestCase):
             assert False
         except Exception as e:
             self.assertIsInstance(e, RetryError)
+    
+    def test_async_do_action_with_ca(self):
+        """Test async_do_action with ca parameter"""
+        request = DaraRequest()
+        request.headers['host'] = "www.alibabacloud.com"
+        request.pathname = "/s/zh"
+        request.protocol = "https"  # Make sure we're testing HTTPS
+        
+        # Test with ca as a string (file path)
+        option = {
+            "ca": "/dev/null"  # Use /dev/null which always exists
+        }
+        
+        # Create a custom async context manager for the request response
+        class MockResponseContext:
+            def __init__(self, response):
+                self.response = response
+                
+            async def __aenter__(self):
+                return self.response
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+        
+        # Create a custom async context manager for ClientSession
+        class MockClientSession:
+            def __init__(self, *args, **kwargs):
+                pass
+            
+            async def __aenter__(self):
+                # Create mock response
+                mock_response = Mock()
+                mock_response.read = AsyncMock(return_value=b'{"result": "test"}')
+                mock_response.headers = {'content-type': 'application/json'}
+                mock_response.status = 200
+                mock_response.reason = 'OK'
+                
+                self.mock_response = mock_response
+                return self
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+                
+            def request(self, *args, **kwargs):
+                return MockResponseContext(self.mock_response)
+        
+        with patch('aiohttp.ClientSession', MockClientSession), \
+             patch('ssl.create_default_context') as mock_create_default_context, \
+             patch('darabonba.core.DaraCore._set_tls_minimum_version') as mock_set_tls_min_version:
+            
+            # Mock SSL context
+            mock_ssl_context = Mock()
+            mock_create_default_context.return_value = mock_ssl_context
+            mock_set_tls_min_version.return_value = mock_ssl_context
+            mock_ssl_context.load_verify_locations = Mock()  # Mock this to avoid FileNotFoundError
+            
+            # Mock TCPConnector
+            with patch('aiohttp.TCPConnector') as mock_connector_class:
+                mock_connector = Mock()
+                mock_connector_class.return_value = mock_connector
+                
+                loop = asyncio.get_event_loop()
+                task = asyncio.ensure_future(
+                    DaraCore.async_do_action(request, option)
+                )
+                loop.run_until_complete(task)
+                response = task.result()
+                
+                # Verify that the response was created correctly
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.status_message, 'OK')
+                self.assertEqual(response.body, b'{"result": "test"}')
+                
+                # Verify that SSL context was created with the CA file
+                mock_ssl_context.load_verify_locations.assert_called_once_with("/dev/null")
+    
+    def test_async_do_action_with_ignore_ssl(self):
+        """Test async_do_action with ignoreSSL parameter"""
+        request = DaraRequest()
+        request.headers['host'] = "www.alibabacloud.com"
+        request.pathname = "/s/zh"
+        request.protocol = "https"  # Make sure we're testing HTTPS
+        
+        # Test with ignoreSSL=True
+        option = {
+            "ignoreSSL": True
+        }
+        
+        # Create a custom async context manager for the request response
+        class MockResponseContext:
+            def __init__(self, response):
+                self.response = response
+                
+            async def __aenter__(self):
+                return self.response
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+        
+        # Create a custom async context manager for ClientSession
+        class MockClientSession:
+            def __init__(self, *args, **kwargs):
+                pass
+            
+            async def __aenter__(self):
+                # Create mock response
+                mock_response = Mock()
+                mock_response.read = AsyncMock(return_value=b'{"result": "test"}')
+                mock_response.headers = {'content-type': 'application/json'}
+                mock_response.status = 200
+                mock_response.reason = 'OK'
+                
+                self.mock_response = mock_response
+                return self
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+                
+            def request(self, *args, **kwargs):
+                return MockResponseContext(self.mock_response)
+        
+        with patch('aiohttp.ClientSession', MockClientSession):
+            # Mock TCPConnector
+            with patch('aiohttp.TCPConnector') as mock_connector_class:
+                mock_connector = Mock()
+                mock_connector_class.return_value = mock_connector
+                
+                loop = asyncio.get_event_loop()
+                task = asyncio.ensure_future(
+                    DaraCore.async_do_action(request, option)
+                )
+                loop.run_until_complete(task)
+                response = task.result()
+                
+                # Verify that the response was created correctly
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.status_message, 'OK')
+                self.assertEqual(response.body, b'{"result": "test"}')
+    
+    def test_async_do_action_with_cert(self):
+        """Test async_do_action with cert parameter"""
+        request = DaraRequest()
+        request.headers['host'] = "www.alibabacloud.com"
+        request.pathname = "/s/zh"
+        request.protocol = "https"  # Make sure we're testing HTTPS
+        
+        # Test with cert as a tuple (cert_file, key_file)
+        option = {
+            "cert": ("/dev/null", "/dev/null")  # Use /dev/null which always exists
+        }
+        
+        # Create a custom async context manager for the request response
+        class MockResponseContext:
+            def __init__(self, response):
+                self.response = response
+                
+            async def __aenter__(self):
+                return self.response
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+        
+        # Create a custom async context manager for ClientSession
+        class MockClientSession:
+            def __init__(self, *args, **kwargs):
+                pass
+            
+            async def __aenter__(self):
+                # Create mock response
+                mock_response = Mock()
+                mock_response.read = AsyncMock(return_value=b'{"result": "test"}')
+                mock_response.headers = {'content-type': 'application/json'}
+                mock_response.status = 200
+                mock_response.reason = 'OK'
+                
+                self.mock_response = mock_response
+                return self
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+                
+            def request(self, *args, **kwargs):
+                return MockResponseContext(self.mock_response)
+        
+        with patch('aiohttp.ClientSession', MockClientSession), \
+             patch('ssl.create_default_context') as mock_create_default_context, \
+             patch('darabonba.core.DaraCore._set_tls_minimum_version') as mock_set_tls_min_version:
+            
+            # Mock SSL context
+            mock_ssl_context = Mock()
+            mock_create_default_context.return_value = mock_ssl_context
+            mock_set_tls_min_version.return_value = mock_ssl_context
+            mock_ssl_context.load_verify_locations = Mock()  # Mock this to avoid FileNotFoundError
+            mock_ssl_context.load_cert_chain = Mock()  # Mock this to avoid FileNotFoundError
+            
+            # Mock TCPConnector
+            with patch('aiohttp.TCPConnector') as mock_connector_class:
+                mock_connector = Mock()
+                mock_connector_class.return_value = mock_connector
+                
+                loop = asyncio.get_event_loop()
+                task = asyncio.ensure_future(
+                    DaraCore.async_do_action(request, option)
+                )
+                loop.run_until_complete(task)
+                response = task.result()
+                
+                # Verify that the response was created correctly
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.status_message, 'OK')
+                self.assertEqual(response.body, b'{"result": "test"}')
+                
+                # Verify that SSL context was created with the cert files
+                mock_ssl_context.load_cert_chain.assert_called_once_with(certfile="/dev/null", keyfile="/dev/null")
+
+    def test_async_do_action_with_cert_single_file(self):
+        """Test async_do_action with cert parameter as single file"""
+        request = DaraRequest()
+        request.headers['host'] = "www.alibabacloud.com"
+        request.pathname = "/s/zh"
+        request.protocol = "https"  # Make sure we're testing HTTPS
+        
+        # Test with cert as a single file path
+        option = {
+            "cert": "/dev/null"  # Use /dev/null which always exists
+        }
+        
+        # Create a custom async context manager for the request response
+        class MockResponseContext:
+            def __init__(self, response):
+                self.response = response
+                
+            async def __aenter__(self):
+                return self.response
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+        
+        # Create a custom async context manager for ClientSession
+        class MockClientSession:
+            def __init__(self, *args, **kwargs):
+                pass
+            
+            async def __aenter__(self):
+                # Create mock response
+                mock_response = Mock()
+                mock_response.read = AsyncMock(return_value=b'{"result": "test"}')
+                mock_response.headers = {'content-type': 'application/json'}
+                mock_response.status = 200
+                mock_response.reason = 'OK'
+                
+                self.mock_response = mock_response
+                return self
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+                
+            def request(self, *args, **kwargs):
+                return MockResponseContext(self.mock_response)
+        
+        with patch('aiohttp.ClientSession', MockClientSession), \
+             patch('ssl.create_default_context') as mock_create_default_context, \
+             patch('darabonba.core.DaraCore._set_tls_minimum_version') as mock_set_tls_min_version:
+            
+            # Mock SSL context
+            mock_ssl_context = Mock()
+            mock_create_default_context.return_value = mock_ssl_context
+            mock_set_tls_min_version.return_value = mock_ssl_context
+            mock_ssl_context.load_verify_locations = Mock()  # Mock this to avoid FileNotFoundError
+            mock_ssl_context.load_cert_chain = Mock()  # Mock this to avoid FileNotFoundError
+            
+            # Mock TCPConnector
+            with patch('aiohttp.TCPConnector') as mock_connector_class:
+                mock_connector = Mock()
+                mock_connector_class.return_value = mock_connector
+                
+                loop = asyncio.get_event_loop()
+                task = asyncio.ensure_future(
+                    DaraCore.async_do_action(request, option)
+                )
+                loop.run_until_complete(task)
+                response = task.result()
+                
+                # Verify that the response was created correctly
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.status_message, 'OK')
+                self.assertEqual(response.body, b'{"result": "test"}')
+                
+                # Verify that SSL context was created with the cert file
+                mock_ssl_context.load_cert_chain.assert_called_once_with(certfile="/dev/null", keyfile=None)
     
     def test_to_number(self):
         # Test the case with different inputs
@@ -1256,6 +1592,49 @@ class TestSSEActions(unittest.TestCase):
 
     @patch('darabonba.core.Session')
     @patch('darabonba.core.DaraCore._get_session')
+    def test_do_sse_action_with_cert(self, mock_get_session, mock_session_class):
+        """Test do_sse_action with cert parameter"""
+        # 准备模拟对象
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {'content-type': 'text/event-stream'}
+        
+        # 模拟 SSE 数据流
+        sse_data = [
+            b'data: {"message": "test1"}\n\n',
+            b'event: update\ndata: {"message": "test2"}\n\n',
+        ]
+        
+        mock_response.iter_content.return_value = sse_data
+        mock_response.content = b''.join(sse_data)
+        
+        mock_session.send.return_value = mock_response
+        mock_get_session.return_value = mock_session
+        
+        # 创建带证书的 runtime_option
+        runtime_option_with_cert = self.runtime_option.copy()
+        runtime_option_with_cert["cert"] = ("/dev/null", "/dev/null")
+        
+        # 调用被测试的方法
+        result = DaraCore.do_sse_action(self.request, runtime_option_with_cert)
+        
+        # 验证 send 方法被调用时包含了 cert 参数
+        mock_session.send.assert_called_once()
+        call_args = mock_session.send.call_args
+        self.assertIn('cert', call_args[1])
+        self.assertEqual(call_args[1]['cert'], ("/dev/null", "/dev/null"))
+        
+        # 验证返回值类型
+        self.assertIsInstance(result, DaraResponse)
+        self.assertIsInstance(result.body, SyncSSEResponseWrapper)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.status_message, 'OK')
+        self.assertEqual(result.headers['content-type'], 'text/event-stream')
+
+    @patch('darabonba.core.Session')
+    @patch('darabonba.core.DaraCore._get_session')
     def test_do_sse_action_with_error(self, mock_get_session, mock_session_class):
         # 模拟请求异常
         mock_session = Mock()
@@ -1340,6 +1719,74 @@ class TestSSEActions(unittest.TestCase):
         # 运行异步测试
         asyncio.run(run_test())
 
+    @patch('aiohttp.TCPConnector')
+    @patch('ssl.create_default_context')
+    @patch('darabonba.core.DaraCore._set_tls_minimum_version')
+    def test_async_do_sse_action_with_cert(self, mock_set_tls_min_version, mock_create_default_context, mock_tcp_connector):
+        """Test async_do_sse_action with cert parameter"""
+        # Mock SSL context
+        mock_ssl_context = Mock()
+        mock_create_default_context.return_value = mock_ssl_context
+        mock_set_tls_min_version.return_value = mock_ssl_context
+        mock_ssl_context.load_verify_locations = Mock()
+        mock_ssl_context.load_cert_chain = Mock()
+        
+        # Mock TCPConnector
+        mock_connector = Mock()
+        mock_tcp_connector.return_value = mock_connector
+        
+        # 创建带证书的 runtime_option
+        runtime_option_with_cert = self.runtime_option.copy()
+        runtime_option_with_cert["cert"] = ("/dev/null", "/dev/null")
+        
+        # 创建模拟的 aiohttp 响应
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {'content-type': 'text/event-stream'}
+        
+        # 模拟异步内容迭代
+        chunks = [
+            b'data: async first\n\n',
+            b'event: async\ndata: async second\n\n'
+        ]
+        
+        async def mock_iter_chunked(size):
+            for chunk in chunks:
+                yield chunk
+        
+        # 为模拟对象添加 content 属性
+        mock_content = Mock()
+        mock_content.iter_chunked = mock_iter_chunked
+        mock_response.content = mock_content
+        
+        # 异步测试需要在事件循环中运行
+        async def run_test():
+            # 设置 ClientSession 模拟
+            with patch('aiohttp.ClientSession') as mock_client_session:
+                # 创建模拟的 session 实例
+                mock_session = Mock()
+                mock_session.request = AsyncMock(return_value=mock_response)
+                mock_session.close = AsyncMock()
+                
+                # 设置 ClientSession 的返回值
+                mock_client_session.return_value = mock_session
+                
+                result = await DaraCore.async_do_sse_action(self.request, runtime_option_with_cert)
+                
+                # 验证返回值
+                self.assertIsInstance(result, DaraResponse)
+                self.assertIsInstance(result.body, SSEResponseWrapper)
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual(result.status_message, 'OK')
+                self.assertEqual(result.headers['content-type'], 'text/event-stream')
+                
+                # 验证 SSL 上下文加载了证书
+                mock_ssl_context.load_cert_chain.assert_called_once_with(certfile="/dev/null", keyfile="/dev/null")
+        
+        # 运行异步测试
+        asyncio.run(run_test())
+
     @patch('darabonba.core.Session')
     @patch('darabonba.core.DaraCore._get_session')
     def test_do_sse_action_with_error(self, mock_get_session, mock_session_class):
@@ -1355,7 +1802,6 @@ class TestSSEActions(unittest.TestCase):
         self.assertIn('Network error', str(context.exception))
 
     def test_sync_sse_wrapper_close(self):
-        # 测试 SyncSSEResponseWrapper 的 close 方法
         mock_session = Mock()
         mock_response = Mock()
         mock_response.close = Mock()
@@ -1363,13 +1809,11 @@ class TestSSEActions(unittest.TestCase):
         
         wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
         
-        # 验证 close 方法
         wrapper.close()
         mock_response.close.assert_called_once()
         mock_session.close.assert_called_once()
         
-        # 验证重复关闭不会出错
-        wrapper.close()  # 应该不会再次调用 close
+        wrapper.close()
 
     async def test_async_sse_wrapper_close(self):
         # 测试 SSEResponseWrapper 的 close 方法
@@ -1378,15 +1822,20 @@ class TestSSEActions(unittest.TestCase):
         mock_response.close = Mock()
         mock_session.close = Mock()
         
-        wrapper = SSEResponseWrapper(mock_session, mock_response)
-        
-        # 验证异步 close 方法
-        await wrapper.close()
-        mock_response.close.assert_called_once()
-        mock_session.close.assert_called_once()
-        
-        # 验证重复关闭不会出错
-        await wrapper.close()  # 应该不会再次调用 close
+        # 使用 asyncio.run() 来运行异步方法
+        async def run_test():
+            wrapper = SSEResponseWrapper(mock_session, mock_response)
+            
+            # 验证异步 close 方法
+            await wrapper.close()
+            mock_response.close.assert_called_once()
+            mock_session.close.assert_called_once()
+            
+            # 验证重复关闭不会出错
+            await wrapper.close()  # 应该不会再次调用 close
+            
+        # 运行异步测试
+        asyncio.run(run_test())
 
     def test_sse_wrapper_read(self):
         # 测试 SyncSSEResponseWrapper 的 read 方法
