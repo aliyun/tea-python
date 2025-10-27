@@ -9,7 +9,7 @@ import re
 import certifi
 import json
 from requests import status_codes, adapters, PreparedRequest
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from enum import Enum
 from urllib.parse import urlencode, urlparse
 from requests import status_codes, adapters, PreparedRequest, Session
@@ -93,7 +93,7 @@ class DaraCore:
         return context
     
     @staticmethod
-    def get_adapter(prefix, tls_min_version: str = None):
+    def get_adapter(prefix, tls_min_version: Optional[str] = None):
         ca_cert = certifi.where()
         context = ssl.create_default_context()
         if ca_cert and prefix.upper() == 'HTTPS':
@@ -165,10 +165,16 @@ class DaraCore:
         runtime_option = runtime_option or {}
 
         url = DaraCore.compose_url(request)
-        verify = not runtime_option.get('ignoreSSL', False)
+        ignore_ssl = runtime_option.get('ignoreSSL', False)
+        verify: Union[bool, str] = not ignore_ssl
         tls_min_version = runtime_option.get('tlsMinVersion')
         if isinstance(tls_min_version, Enum):
             tls_min_version = tls_min_version.value
+
+        if verify:
+            ca = runtime_option.get('ca')
+            if ca is not None:
+                verify = ca
 
         timeout = runtime_option.get('timeout')
         connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
@@ -188,13 +194,17 @@ class DaraCore:
 
         connector = None
         ca_cert = certifi.where()
-        if ca_cert and request.protocol.upper() == 'HTTPS':
+        ssl_context = None
+        if isinstance(verify, str):
+            ssl_context = ssl.create_default_context()
+            ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
+            ssl_context.load_verify_locations(verify)
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+        elif ca_cert and request.protocol.upper() == 'HTTPS' and verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
             ssl_context.load_verify_locations(ca_cert)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context,
-            )
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
         else:
             verify = False
 
@@ -212,17 +222,18 @@ class DaraCore:
             elif isinstance(request.body, str):
                 body = request.body.encode('utf-8')
             else:
-                body = request.body
+                body = request.body or b''
             try:
+                ssl_param: Union[bool, ssl.SSLContext] = ssl_context if ssl_context is not None else bool(verify)
                 async with s.request(request.method, url,
                                      data=body,
                                      headers=request.headers,
-                                     ssl=verify,
+                                     ssl=ssl_param,
                                      proxy=proxy,
                                      timeout=timeout) as response:
-                    tea_resp = DaraResponse()
+                    tea_resp: DaraResponse = DaraResponse()
                     tea_resp.body = await response.read()
-                    tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
+                    tea_resp.headers = dict({k.lower(): v for k, v in response.headers.items()})
                     tea_resp.status_code = response.status
                     tea_resp.status_message = response.reason
                     tea_resp.response = response
@@ -320,10 +331,16 @@ class DaraCore:
         runtime_option = runtime_option or {}
 
         url = DaraCore.compose_url(request)
-        verify = not runtime_option.get('ignoreSSL', False)
+        ignore_ssl = runtime_option.get('ignoreSSL', False)
+        verify: Union[bool, str] = not ignore_ssl
         tls_min_version = runtime_option.get('tlsMinVersion')
         if isinstance(tls_min_version, Enum):
             tls_min_version = tls_min_version.value
+
+        if verify:
+            ca = runtime_option.get('ca')
+            if ca is not None:
+                verify = ca
 
         timeout = runtime_option.get('timeout')
         connect_timeout = runtime_option.get('connectTimeout') or timeout or DEFAULT_CONNECT_TIMEOUT
@@ -343,7 +360,13 @@ class DaraCore:
 
         connector = None
         ca_cert = certifi.where()
-        if ca_cert and request.protocol.upper() == 'HTTPS':
+        ssl_context = None
+        if isinstance(verify, str):
+            ssl_context = ssl.create_default_context()
+            ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
+            ssl_context.load_verify_locations(verify)
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+        elif ca_cert and request.protocol.upper() == 'HTTPS' and verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
             ssl_context.load_verify_locations(ca_cert)
@@ -365,23 +388,24 @@ class DaraCore:
         elif isinstance(request.body, str):
             body = request.body.encode('utf-8')
         else:
-            body = request.body
+            body = request.body or b''
 
         try:
             headers = request.headers.copy()
+            ssl_param: Union[bool, ssl.SSLContext] = ssl_context if ssl_context is not None else bool(verify)
             response = await session.request(
                 request.method, 
                 url,
                 data=body,
                 headers=headers,
-                ssl=verify,
+                ssl=ssl_param,
                 proxy=proxy,
                 timeout=timeout
             )
-            tea_resp = DaraResponse()
+            tea_resp: DaraResponse = DaraResponse()
             tea_resp.status_code = response.status
             tea_resp.status_message = response.reason
-            tea_resp.headers = {k.lower(): v for k, v in response.headers.items()}
+            tea_resp.headers = dict({k.lower(): v for k, v in response.headers.items()})
             tea_resp.body = SSEResponseWrapper(session, response)
             return tea_resp
                         
@@ -600,7 +624,7 @@ class DaraCore:
             return model
 
     @staticmethod
-    def _get_session(session_key: str, protocol: str, tls_min_version: str = None, verify: bool = True):
+    def _get_session(session_key: str, protocol: str, tls_min_version: Optional[str] = None, verify: bool = True):
         if session_key not in DaraCore._sessions:
             session = Session()
             adapter = DaraCore.get_adapter(protocol, tls_min_version)
