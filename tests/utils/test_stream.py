@@ -261,3 +261,53 @@ class TestStream(unittest.TestCase):
         # Test with invalid input (should raise ValueError)
         with self.assertRaises(ValueError):
             Stream.to_writeable(123)
+
+    def test_read_as_bytes_with_sync_sse_wrapper(self):
+        # Test read_as_bytes with SyncSSEResponseWrapper
+        mock_session = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        test_data = b'Test SSE data content'
+        mock_response.content = test_data
+        mock_response.close = mock.MagicMock()
+        mock_session.close = mock.MagicMock()
+        
+        from darabonba.utils.stream import SyncSSEResponseWrapper
+        wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
+        
+        result = Stream.read_as_bytes(wrapper)
+        self.assertEqual(result, test_data)
+        
+        # Verify that session and response are closed
+        mock_response.close.assert_called_once()
+        mock_session.close.assert_called_once()
+
+    def test_read_as_bytes_async_with_sse_wrapper(self):
+        # Test read_as_bytes_async with SSEResponseWrapper
+        async def run_test():
+            mock_session = mock.MagicMock()
+            mock_response = mock.MagicMock()
+            test_data = b'Test async SSE data content'
+            
+            # Mock async read method
+            async def mock_read():
+                return test_data
+            
+            mock_response.read = mock_read
+            mock_response.close = mock.MagicMock()
+            
+            # Mock async close
+            async def mock_session_close():
+                pass
+            
+            mock_session.close = mock_session_close
+            
+            from darabonba.utils.stream import SSEResponseWrapper
+            wrapper = SSEResponseWrapper(mock_session, mock_response)
+            
+            result = await Stream.read_as_bytes_async(wrapper)
+            self.assertEqual(result, test_data)
+            
+            # Close should be called
+            mock_response.close.assert_called_once()
+        
+        asyncio.run(run_test())

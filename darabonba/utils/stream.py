@@ -160,7 +160,9 @@ class Stream:
         @param stream: the readable stream
         @return: the bytes result
         """
-        if isinstance(stream, READABLE):
+        if isinstance(stream, SyncSSEResponseWrapper):
+            return stream.read()
+        elif isinstance(stream, READABLE):
             b = b''
             for part in Stream.__read_part(stream, 1024):
                 b += part
