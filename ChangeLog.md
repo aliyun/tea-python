@@ -1,3 +1,6 @@
+### 2025-03-24 Version 1.0.5
+* Fix fix read_as_bytes，support SyncSSEResponseWrapper.
+
 ### 2025-03-24 Version 0.4.3
 * Resolve ssl ignore bug.
 
