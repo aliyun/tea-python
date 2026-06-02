@@ -89,4 +89,4 @@ setup_args = {
     'python_requires': '>=3.7'
 }
 
-setup(name='darabonba-core', **setup_args)
+setup(name='darabonba_core', **setup_args)
