@@ -1,3 +1,6 @@
+### 2026-06-02 Version 1.0.6
+* Add detail field to TeaException.
+
 ### 2025-03-24 Version 1.0.5
 * Fix fix read_as_bytes，support SyncSSEResponseWrapper.
 
