@@ -9,6 +9,7 @@ class DaraException(TeaException):
     def __init__(self, dic):
         super().__init__(dic)
         self.code = dic.get("code")
+        self.detail = dic.get("detail")
         self.message = dic.get("message")
         self.data = dic.get("data")
         self.description = dic.get("description")
@@ -29,6 +30,7 @@ class ResponseException(DaraException):
                  data: Optional[dict] = None,
                  access_denied_detail: Optional[dict] = None,
                  description: Optional[str] = None,
+                 detail: Optional[str] = None,
                  stack: Optional[str] = None):
         if data and status_code is not None:
             data['statusCode'] = status_code
@@ -37,6 +39,7 @@ class ResponseException(DaraException):
             'message': message,
             'data': data,
             'description': description,
+            'detail': detail,
             'accessDeniedDetail': access_denied_detail
         })
         
