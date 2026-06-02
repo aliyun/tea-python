@@ -14,6 +14,7 @@ class TestDaraException(TestCase):
     def test_tea_exception(self):
         dic = {
             "code": "200",
+            "detail": "detail message",
             "message": "message",
             "data": {
                 "test": "test",
@@ -32,6 +33,7 @@ class TestDaraException(TestCase):
         except DaraException as e:
             self.assertIsNotNone(e)
             self.assertEqual("200", e.code)
+            self.assertEqual("detail message", e.detail)
             self.assertEqual("message", e.message)
             self.assertIsNotNone(e.data)
             self.assertEqual("test", e.data.get("test"))
@@ -55,6 +57,7 @@ class TestDaraException(TestCase):
             self.assertIsNotNone(e)
             self.assertIsNone(e.data)
             self.assertIsNotNone(e.code)
+            self.assertIsNone(e.detail)
 
     def test_RequiredArgumentException(self):
         param_name = 'name'
@@ -70,6 +73,7 @@ class TestDaraException(TestCase):
         data = {"key": "value"}
         access_denied_detail = {"detail": "Access Denied"}
         description = "Request failed"
+        detail = "detail message"
 
         response_exception = ResponseException(
             code=code,
@@ -78,10 +82,12 @@ class TestDaraException(TestCase):
             retry_after=retry_after,
             data=data,
             access_denied_detail=access_denied_detail,
-            description=description
+            description=description,
+            detail=detail
         )
 
         self.assertEqual(response_exception.code, code)
+        self.assertEqual(response_exception.detail, detail)
         self.assertEqual(response_exception.message, message)
         self.assertEqual(response_exception.status_code, status_code)
         self.assertEqual(response_exception.retry_after, retry_after)
