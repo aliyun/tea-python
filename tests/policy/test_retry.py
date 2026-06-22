@@ -143,6 +143,32 @@ class TestRetryCondition(unittest.TestCase):
         self.assertEqual(retry_condition.backoff.period, 100)
         self.assertEqual(retry_condition.exception, ['ExceptionA'])
         self.assertEqual(retry_condition.error_code, ['ErrorA'])
+
+    def test_retry_condition_snake_case_kwargs(self):
+        condition = RetryCondition(
+            max_attempts=3,
+            error_code=['Throttling', 'Throttling.User', 'Throttling.Api'],
+            max_delay=60000,
+            exception=[],
+        )
+        self.assertEqual(condition.max_attempts, 3)
+        self.assertEqual(condition.error_code, ['Throttling', 'Throttling.User', 'Throttling.Api'])
+        self.assertEqual(condition.max_delay, 60000)
+        self.assertEqual(condition.exception, [])
+
+    def test_retry_condition_kwargs_override_dict(self):
+        condition = RetryCondition(
+            {'maxAttempts': 1, 'errorCode': ['A']},
+            max_attempts=3,
+            error_code=['Throttling'],
+        )
+        self.assertEqual(condition.max_attempts, 3)
+        self.assertEqual(condition.error_code, ['Throttling'])
+
+    def test_retry_condition_invalid_option_type(self):
+        with self.assertRaises(TypeError):
+            RetryCondition('not a dict')
+
     def test_retry_options(self):
         options = {
             'retryable': True,
@@ -172,7 +198,27 @@ class TestRetryCondition(unittest.TestCase):
         self.assertEqual(retry_options.to_map(), expected_map)
         retry_options = RetryOptions.from_map(expected_map)
         self.assertTrue(retry_options.to_map() == expected_map)
-        
+
+    def test_retry_options_snake_case_kwargs(self):
+        retry_options = RetryOptions(
+            retryable=True,
+            max_attempts=3,
+            retry_condition=[RetryCondition(
+                max_attempts=3,
+                error_code=['Throttling', 'Throttling.User', 'Throttling.Api'],
+                max_delay=60000,
+            )],
+        )
+        self.assertTrue(retry_options.retryable)
+        self.assertEqual(retry_options.max_attempts, 3)
+        self.assertEqual(len(retry_options.retry_condition), 1)
+        self.assertEqual(retry_options.retry_condition[0].max_attempts, 3)
+        self.assertEqual(
+            retry_options.retry_condition[0].error_code,
+            ['Throttling', 'Throttling.User', 'Throttling.Api'],
+        )
+        self.assertEqual(retry_options.retry_condition[0].max_delay, 60000)
+        self.assertTrue(retry_options.validate())
 
     def test_get_backoff_delay(self):
         options = RetryOptions({
@@ -200,3 +246,33 @@ class TestRetryCondition(unittest.TestCase):
         ctx.exception.retryAfter = None
         self.assertEqual(get_backoff_delay(options, ctx), 100)
         self.assertEqual(get_backoff_delay(RetryOptions({}), ctx), 100)
+
+    def test_get_backoff_delay_retry_after_snake_case(self):
+        class ThrottlingLike(AException):
+            def __init__(self, dic):
+                super().__init__(dic)
+                self.retry_after = dic.get('retry_after')
+
+        options = RetryOptions(
+            retry_condition=[RetryCondition(
+                max_attempts=3,
+                error_code=['Throttling'],
+                max_delay=5000,
+            )],
+        )
+        ex = ThrottlingLike({'name': 'ThrottlingException', 'code': 'Throttling', 'retry_after': 3000})
+        ctx = RetryPolicyContext(retries_attempted=2, exception=ex)
+        self.assertEqual(get_backoff_delay(options, ctx), 3000)
+
+    def test_get_backoff_delay_error_code_only_match(self):
+        options = RetryOptions(
+            retry_condition=[RetryCondition(
+                max_attempts=3,
+                exception=[],
+                error_code=['Throttling', 'Throttling.User', 'Throttling.Api'],
+                max_delay=60000,
+            )],
+        )
+        ex = AException({'name': 'ThrottlingException', 'code': 'Throttling'})
+        ctx = RetryPolicyContext(retries_attempted=2, exception=ex)
+        self.assertEqual(get_backoff_delay(options, ctx), 100)

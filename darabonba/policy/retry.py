@@ -4,6 +4,33 @@ from typing import List, Any, Dict
 MAX_DELAY_TIME = 120 * 1000
 MIN_DELAY_TIME = 100
 
+_SNAKE_TO_CAMEL = {
+    'max_attempts': 'maxAttempts',
+    'error_code': 'errorCode',
+    'max_delay': 'maxDelay',
+    'retry_condition': 'retryCondition',
+    'no_retry_condition': 'noRetryCondition',
+}
+
+
+def _normalize_option_keys(data: Dict[str, Any]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    for key, value in data.items():
+        result[_SNAKE_TO_CAMEL.get(key, key)] = value
+    return result
+
+
+def _merge_option_data(option: Dict[str, Any] = None, **kwargs) -> Dict[str, Any]:
+    data: Dict[str, Any] = {}
+    if option is not None:
+        if not isinstance(option, dict):
+            raise TypeError('option must be a dict')
+        data.update(option)
+    if kwargs:
+        data.update(_normalize_option_keys(kwargs))
+    return data
+
+
 class BackoffPolicy:
     def __init__(self, option: Dict[str, Any]):
         self.policy = option.get("policy")
@@ -111,12 +138,13 @@ class FullJitterBackoffPolicy(BackoffPolicy):
         return random.randint(0, ceil)
 
 class RetryCondition:
-    def __init__(self, condition: Dict[str, Any]):
-        self.max_attempts = condition.get('maxAttempts', None)
-        self.backoff = self._ensure_backoff_policy(condition.get('backoff', None))
-        self.exception = condition.get('exception', [])
-        self.error_code = condition.get('errorCode', [])
-        self.max_delay = condition.get('maxDelay', None)
+    def __init__(self, condition: Dict[str, Any] = None, **kwargs):
+        data = _merge_option_data(condition, **kwargs)
+        self.max_attempts = data.get('maxAttempts', None)
+        self.backoff = self._ensure_backoff_policy(data.get('backoff', None))
+        self.exception = data.get('exception', [])
+        self.error_code = data.get('errorCode', [])
+        self.max_delay = data.get('maxDelay', None)
     
     def _ensure_backoff_policy(self, backoff):
         if isinstance(backoff, dict):
@@ -149,10 +177,12 @@ class RetryCondition:
         })
 
 class RetryOptions:
-    def __init__(self, options: Dict[str, Any]):
-        self.retryable = options.get('retryable', True)
-        self.retry_condition = [self._ensure_retry_condition(cond) for cond in options.get('retryCondition', [])]
-        self.no_retry_condition = [self._ensure_retry_condition(cond) for cond in options.get('noRetryCondition', [])]
+    def __init__(self, options: Dict[str, Any] = None, **kwargs):
+        data = _merge_option_data(options, **kwargs)
+        self.retryable = data.get('retryable', True)
+        self.max_attempts = data.get('maxAttempts', None)
+        self.retry_condition = [self._ensure_retry_condition(cond) for cond in data.get('retryCondition', [])]
+        self.no_retry_condition = [self._ensure_retry_condition(cond) for cond in data.get('noRetryCondition', [])]
 
     def _ensure_retry_condition(self, condition):
         if isinstance(condition, dict):
@@ -200,15 +230,19 @@ class RetryPolicyContext:
 def get_backoff_delay(options: RetryOptions, ctx: RetryPolicyContext) -> int:
     ex = ctx.exception
     for condition in options.retry_condition:
-        if (ex and (ex.name in condition.exception or ex.code in condition.error_code)):
+        ex_name = getattr(ex, 'name', None)
+        ex_code = getattr(ex, 'code', None)
+        if ex and (ex_name in condition.exception or ex_code in condition.error_code):
             max_delay = condition.max_delay or MAX_DELAY_TIME
-            retry_after = getattr(ex, 'retryAfter', None)
+            retry_after = getattr(ex, 'retry_after', None)
+            if retry_after is None:
+                retry_after = getattr(ex, 'retryAfter', None)
             if retry_after is not None:
                 return min(retry_after, max_delay)
 
             if not condition.backoff:
                 return MIN_DELAY_TIME
-            
+
             return min(condition.backoff.get_delay_time(ctx), max_delay)
 
     return MIN_DELAY_TIME
