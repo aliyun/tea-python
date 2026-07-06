@@ -41,6 +41,8 @@ else:
     install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <4.0.0')
 
+install_requires.append('websocket-client>=1.6.0, <2.0.0')
+
 if ssl.OPENSSL_VERSION_INFO is not None and len(ssl.OPENSSL_VERSION_INFO) >= 3 and ssl.OPENSSL_VERSION_INFO[:3] >= (
         1, 1, 1):
     pass
