@@ -347,6 +347,145 @@ class TestWebSocket(unittest.TestCase):
         )
         self.assertIn('Proxy-Authorization', auth_request.headers)
 
+    def test_no_duplicate_sec_websocket_protocol_header(self):
+        # Intercept WebSocketApp to capture what headers and subprotocols are passed.
+        captured = {}
+        original_init = __import__('websocket').WebSocketApp.__init__
+
+        def patched_init(self_app, url, header=None, on_open=None,
+                         on_message=None, on_error=None, on_close=None,
+                         subprotocols=None, **kwargs):
+            captured['header'] = header
+            captured['subprotocols'] = subprotocols
+            raise ConnectionRefusedError('captured')
+
+        import websocket as ws_lib
+        ws_lib.WebSocketApp.__init__ = patched_init
+        try:
+            # Simulate the real call path: openapi client pre-sets
+            # 'sec-websocket-protocol' in request.headers for ACS3 signature.
+            request = DaraRequest()
+            request.protocol = 'ws'
+            request.domain = '127.0.0.1:19999'
+            request.pathname = '/'
+            request.headers = {
+                'host': '127.0.0.1:19999',
+                'sec-websocket-protocol': 'awap',
+            }
+
+            runtime = RuntimeOptions(
+                connect_timeout=5000,
+                read_timeout=5000,
+                web_socket_ping_interval=0,
+                web_socket_enable_reconnect=False,
+                websocket_sub_protocol='awap',
+            )
+            handler = MockWebSocketHandler()
+            client = new_default_websocket_client(handler)
+            try:
+                client.connect(request, runtime)
+            except (ConnectionRefusedError, Exception):
+                pass
+
+            header = captured.get('header', {})
+
+            # Must have exactly 1 key matching 'sec-websocket-protocol' (case-insensitive).
+            # Before fix: Python dict had both 'sec-websocket-protocol' and
+            # 'Sec-WebSocket-Protocol' because dict keys are case-sensitive.
+            protocol_keys = [k for k in header if k.lower() == 'sec-websocket-protocol']
+            self.assertEqual(1, len(protocol_keys),
+                             f'Expected 1 protocol header key, got: {protocol_keys}')
+
+            # subprotocols must be None. If set to ['awap'], websocket-client
+            # library merges it with the header into 'awap,awap' on the wire.
+            self.assertIsNone(captured.get('subprotocols'))
+        finally:
+            ws_lib.WebSocketApp.__init__ = original_init
+
+    def test_subprotocols_not_passed_even_without_preset_header(self):
+        # Even when request.headers does NOT contain sec-websocket-protocol,
+        # subprotocols param must still be None to avoid duplication.
+        captured = {}
+        original_init = __import__('websocket').WebSocketApp.__init__
+
+        def patched_init(self_app, url, header=None, on_open=None,
+                         on_message=None, on_error=None, on_close=None,
+                         subprotocols=None, **kwargs):
+            captured['header'] = header
+            captured['subprotocols'] = subprotocols
+            raise ConnectionRefusedError('captured')
+
+        import websocket as ws_lib
+        ws_lib.WebSocketApp.__init__ = patched_init
+        try:
+            request = DaraRequest()
+            request.protocol = 'ws'
+            request.domain = '127.0.0.1:19999'
+            request.pathname = '/'
+            request.headers = {'host': '127.0.0.1:19999'}
+
+            runtime = RuntimeOptions(
+                connect_timeout=5000,
+                read_timeout=5000,
+                web_socket_ping_interval=0,
+                web_socket_enable_reconnect=False,
+                websocket_sub_protocol='general',
+            )
+            handler = MockWebSocketHandler()
+            client = new_default_websocket_client(handler)
+            try:
+                client.connect(request, runtime)
+            except (ConnectionRefusedError, Exception):
+                pass
+
+            # subprotocols must always be None regardless of input.
+            self.assertIsNone(captured.get('subprotocols'))
+        finally:
+            ws_lib.WebSocketApp.__init__ = original_init
+
+    def test_protocol_header_value_preserved_from_request(self):
+        # The header value from request.headers must pass through unchanged.
+        captured = {}
+        original_init = __import__('websocket').WebSocketApp.__init__
+
+        def patched_init(self_app, url, header=None, on_open=None,
+                         on_message=None, on_error=None, on_close=None,
+                         subprotocols=None, **kwargs):
+            captured['header'] = header
+            raise ConnectionRefusedError('captured')
+
+        import websocket as ws_lib
+        ws_lib.WebSocketApp.__init__ = patched_init
+        try:
+            request = DaraRequest()
+            request.protocol = 'ws'
+            request.domain = '127.0.0.1:19999'
+            request.pathname = '/'
+            request.headers = {
+                'host': '127.0.0.1:19999',
+                'sec-websocket-protocol': 'general',
+            }
+
+            runtime = RuntimeOptions(
+                connect_timeout=5000,
+                read_timeout=5000,
+                web_socket_ping_interval=0,
+                web_socket_enable_reconnect=False,
+                websocket_sub_protocol='general',
+            )
+            handler = MockWebSocketHandler()
+            client = new_default_websocket_client(handler)
+            try:
+                client.connect(request, runtime)
+            except (ConnectionRefusedError, Exception):
+                pass
+
+            header = captured.get('header', {})
+            # Value must be exactly 'general', not 'general,general'
+            self.assertEqual('general', header.get('sec-websocket-protocol'))
+        finally:
+            ws_lib.WebSocketApp.__init__ = original_init
+
 
 if __name__ == '__main__':
     unittest.main()

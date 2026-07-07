@@ -208,10 +208,6 @@ class DefaultWebSocketClient:
                 if value and key.lower() not in ('host', 'content-length'):
                     headers[key] = value
 
-        if self.websocket_sub_protocol:
-            headers['Sec-WebSocket-Protocol'] = self.websocket_sub_protocol
-
-        subprotocols = [self.websocket_sub_protocol] if self.websocket_sub_protocol else None
         sslopt = self._configure_tls(runtime_object, parsed.scheme)
         proxy_kwargs = self._configure_proxy(parsed, runtime_object, request)
 
@@ -288,7 +284,7 @@ class DefaultWebSocketClient:
         self.ws_app = websocket.WebSocketApp(
             request_url,
             header=headers,
-            subprotocols=subprotocols,
+            subprotocols=None,
             on_open=on_open,
             on_message=self._on_message,
             on_error=on_error,
