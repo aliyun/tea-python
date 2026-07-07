@@ -166,7 +166,6 @@ class DefaultWebSocketClient:
         self.pong_timeout = 5000
         self.max_reconnect_times = 5
         self._reconnect_lock = threading.Lock()
-        self.websocket_sub_protocol: Optional[str] = None
         self._abort_event = threading.Event()
         self._ws_thread: Optional[threading.Thread] = None
         self._message_handlers_started = False
@@ -182,7 +181,6 @@ class DefaultWebSocketClient:
         self.request = request
         self.runtime_object = runtime_object
         self._update_timeout_config(runtime_object)
-        self.websocket_sub_protocol = get_websocket_sub_protocol(runtime_object)
         self.state = STATE_CONNECTING
         self.stopped = False
         self.pong_received = False
@@ -284,7 +282,6 @@ class DefaultWebSocketClient:
         self.ws_app = websocket.WebSocketApp(
             request_url,
             header=headers,
-            subprotocols=None,
             on_open=on_open,
             on_message=self._on_message,
             on_error=on_error,

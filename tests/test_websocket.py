@@ -8,6 +8,8 @@ from base64 import b64encode
 from datetime import datetime
 from urllib.parse import urlparse
 
+import websocket as ws_client
+
 from darabonba.request import DaraRequest
 from darabonba.runtime import RuntimeOptions
 from darabonba.websocket import (
@@ -311,6 +313,44 @@ class TestWebSocket(unittest.TestCase):
             client.close()
         finally:
             server.close()
+
+    def test_connect_passes_through_websocket_protocol_header(self):
+        captured = {}
+
+        class CapturingWebSocketApp:
+            def __init__(self, url, header=None, **kwargs):
+                captured['header'] = header or {}
+                self.sock = None
+
+            def run_forever(self, **kwargs):
+                return True
+
+            def close(self, **kwargs):
+                return None
+
+        original = ws_client.WebSocketApp
+        ws_client.WebSocketApp = CapturingWebSocketApp
+        try:
+            request = DaraRequest()
+            request.protocol = 'ws'
+            request.domain = '127.0.0.1:59999'
+            request.pathname = '/'
+            request.headers = {
+                'host': '127.0.0.1:59999',
+                'sec-websocket-protocol': 'awap',
+            }
+            runtime = RuntimeOptions(
+                connect_timeout=50,
+                web_socket_handshake_timeout=50,
+                web_socket_ping_interval=0,
+            )
+            client = new_default_websocket_client(MockWebSocketHandler())
+            with self.assertRaises(Exception):
+                client.connect(request, runtime)
+            self.assertEqual('awap', captured['header'].get('sec-websocket-protocol'))
+            self.assertNotIn('Sec-WebSocket-Protocol', captured['header'])
+        finally:
+            ws_client.WebSocketApp = original
 
     def test_configure_tls(self):
         client = DefaultWebSocketClient(MockWebSocketHandler())
