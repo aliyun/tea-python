@@ -104,10 +104,6 @@ def get_web_socket_handler(runtime: Any):
     return _get_runtime_value(runtime, 'webSocketHandler', 'web_socket_handler')
 
 
-def get_websocket_sub_protocol(runtime: Any) -> Optional[str]:
-    return _get_runtime_value(runtime, 'websocketSubProtocol', 'websocket_sub_protocol')
-
-
 def new_websocket_response(
     status_code: int,
     status_message: str,

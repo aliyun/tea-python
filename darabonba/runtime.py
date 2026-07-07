@@ -68,7 +68,6 @@ class RuntimeOptions(DaraModel):
         web_socket_write_timeout: int = None,
         web_socket_handshake_timeout: int = None,
         web_socket_handler: Any = None,
-        websocket_sub_protocol: str = None,
     ):
         # retry options
         self.retry_options = retry_options
@@ -119,7 +118,6 @@ class RuntimeOptions(DaraModel):
         self.web_socket_write_timeout = web_socket_write_timeout
         self.web_socket_handshake_timeout = web_socket_handshake_timeout
         self.web_socket_handler = web_socket_handler
-        self.websocket_sub_protocol = websocket_sub_protocol
 
     def validate(self):
         if self.retry_options:
@@ -187,8 +185,6 @@ class RuntimeOptions(DaraModel):
             result['webSocketWriteTimeout'] = self.web_socket_write_timeout
         if self.web_socket_handshake_timeout is not None:
             result['webSocketHandshakeTimeout'] = self.web_socket_handshake_timeout
-        if self.websocket_sub_protocol is not None:
-            result['websocketSubProtocol'] = self.websocket_sub_protocol
         return result
 
     def from_map(self, m: dict = None):
@@ -248,6 +244,4 @@ class RuntimeOptions(DaraModel):
             self.web_socket_write_timeout = m.get('webSocketWriteTimeout')
         if m.get('webSocketHandshakeTimeout') is not None:
             self.web_socket_handshake_timeout = m.get('webSocketHandshakeTimeout')
-        if m.get('websocketSubProtocol') is not None:
-            self.websocket_sub_protocol = m.get('websocketSubProtocol')
         return self

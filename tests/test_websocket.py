@@ -418,7 +418,6 @@ class TestWebSocket(unittest.TestCase):
                 read_timeout=5000,
                 web_socket_ping_interval=0,
                 web_socket_enable_reconnect=False,
-                websocket_sub_protocol='awap',
             )
             handler = MockWebSocketHandler()
             client = new_default_websocket_client(handler)
@@ -469,7 +468,6 @@ class TestWebSocket(unittest.TestCase):
                 read_timeout=5000,
                 web_socket_ping_interval=0,
                 web_socket_enable_reconnect=False,
-                websocket_sub_protocol='general',
             )
             handler = MockWebSocketHandler()
             client = new_default_websocket_client(handler)
@@ -511,7 +509,6 @@ class TestWebSocket(unittest.TestCase):
                 read_timeout=5000,
                 web_socket_ping_interval=0,
                 web_socket_enable_reconnect=False,
-                websocket_sub_protocol='general',
             )
             handler = MockWebSocketHandler()
             client = new_default_websocket_client(handler)
