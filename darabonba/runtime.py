@@ -1,5 +1,5 @@
 from darabonba.core import DaraModel
-from typing import Dict
+from typing import Dict, Any
 from darabonba.policy.retry import RetryOptions
 
 class ExtendsParameters(DaraModel):
@@ -60,6 +60,14 @@ class RuntimeOptions(DaraModel):
         cert: str = None,
         ca: str = None,
         extends_parameters: ExtendsParameters = None,
+        web_socket_ping_interval: int = None,
+        web_socket_pong_timeout: int = None,
+        web_socket_enable_reconnect: bool = None,
+        web_socket_reconnect_interval: int = None,
+        web_socket_max_reconnect_times: int = None,
+        web_socket_write_timeout: int = None,
+        web_socket_handshake_timeout: int = None,
+        web_socket_handler: Any = None,
     ):
         # retry options
         self.retry_options = retry_options
@@ -101,6 +109,15 @@ class RuntimeOptions(DaraModel):
         self.keep_alive = keep_alive
         # Extends Parameters
         self.extends_parameters = extends_parameters
+        # WebSocket options
+        self.web_socket_ping_interval = web_socket_ping_interval
+        self.web_socket_pong_timeout = web_socket_pong_timeout
+        self.web_socket_enable_reconnect = web_socket_enable_reconnect
+        self.web_socket_reconnect_interval = web_socket_reconnect_interval
+        self.web_socket_max_reconnect_times = web_socket_max_reconnect_times
+        self.web_socket_write_timeout = web_socket_write_timeout
+        self.web_socket_handshake_timeout = web_socket_handshake_timeout
+        self.web_socket_handler = web_socket_handler
 
     def validate(self):
         if self.retry_options:
@@ -154,6 +171,20 @@ class RuntimeOptions(DaraModel):
             result['keepAlive'] = self.keep_alive
         if self.extends_parameters is not None:
             result['extendsParameters'] = self.extends_parameters.to_map()
+        if self.web_socket_ping_interval is not None:
+            result['webSocketPingInterval'] = self.web_socket_ping_interval
+        if self.web_socket_pong_timeout is not None:
+            result['webSocketPongTimeout'] = self.web_socket_pong_timeout
+        if self.web_socket_enable_reconnect is not None:
+            result['webSocketEnableReconnect'] = self.web_socket_enable_reconnect
+        if self.web_socket_reconnect_interval is not None:
+            result['webSocketReconnectInterval'] = self.web_socket_reconnect_interval
+        if self.web_socket_max_reconnect_times is not None:
+            result['webSocketMaxReconnectTimes'] = self.web_socket_max_reconnect_times
+        if self.web_socket_write_timeout is not None:
+            result['webSocketWriteTimeout'] = self.web_socket_write_timeout
+        if self.web_socket_handshake_timeout is not None:
+            result['webSocketHandshakeTimeout'] = self.web_socket_handshake_timeout
         return result
 
     def from_map(self, m: dict = None):
@@ -199,4 +230,18 @@ class RuntimeOptions(DaraModel):
         if m.get('extendsParameters') is not None:
             temp_model = ExtendsParameters()
             self.extends_parameters = temp_model.from_map(m['extendsParameters'])
+        if m.get('webSocketPingInterval') is not None:
+            self.web_socket_ping_interval = m.get('webSocketPingInterval')
+        if m.get('webSocketPongTimeout') is not None:
+            self.web_socket_pong_timeout = m.get('webSocketPongTimeout')
+        if m.get('webSocketEnableReconnect') is not None:
+            self.web_socket_enable_reconnect = m.get('webSocketEnableReconnect')
+        if m.get('webSocketReconnectInterval') is not None:
+            self.web_socket_reconnect_interval = m.get('webSocketReconnectInterval')
+        if m.get('webSocketMaxReconnectTimes') is not None:
+            self.web_socket_max_reconnect_times = m.get('webSocketMaxReconnectTimes')
+        if m.get('webSocketWriteTimeout') is not None:
+            self.web_socket_write_timeout = m.get('webSocketWriteTimeout')
+        if m.get('webSocketHandshakeTimeout') is not None:
+            self.web_socket_handshake_timeout = m.get('webSocketHandshakeTimeout')
         return self
