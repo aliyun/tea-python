@@ -1,3 +1,6 @@
+### 2026-07-10 Version 1.0.8
+* Support WebSocket client.
+
 ### 2026-06-22 Version 1.0.7
 * Fix retry policy.
 
