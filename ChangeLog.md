@@ -1,3 +1,6 @@
+### 2026-07-13 Version 1.0.9
+* Honor RuntimeOptions.maxIdleConns for urllib3 / aiohttp connection pool size (#100).
+
 ### 2026-07-10 Version 1.0.8
 * Support WebSocket client.
 

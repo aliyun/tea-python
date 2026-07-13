@@ -18,7 +18,10 @@ except ImportError:
             return super(AsyncMock, self).__call__(*args, **kwargs)
 
 from darabonba.utils.stream import BaseStream, SyncSSEResponseWrapper, SSEResponseWrapper
-from darabonba.core import DaraCore, _TLSAdapter, TLSVersion, _ModelEncoder
+from darabonba.core import (
+    DaraCore, _TLSAdapter, TLSVersion, _ModelEncoder,
+    DEFAULT_POOL_SIZE, DEFAULT_POOL_MAXSIZE,
+)
 from darabonba.exceptions import RetryError, DaraException
 from darabonba.model import DaraModel
 from darabonba.request import DaraRequest
@@ -433,6 +436,33 @@ class TestCore(unittest.TestCase):
             self.assertEqual(result.status_code, 200)
             self.assertEqual(result.status_message, 'OK')
             self.assertEqual(result.body, b'{"result": "test"}')
+
+    def test_do_action_passes_max_idle_conns(self):
+        """Runtime maxIdleConns must be forwarded to session pool size."""
+        request = DaraRequest()
+        request.headers['host'] = "openapi.aligenie.com"
+        request.pathname = "/"
+        request.protocol = "https"
+
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.reason = 'OK'
+        mock_response.headers = {}
+        mock_response.content = b'ok'
+        mock_session.send.return_value = mock_response
+
+        with patch('darabonba.core.DaraCore._get_session', return_value=mock_session) as mock_get_session:
+            DaraCore.do_action(request, {"maxIdleConns": 128})
+            kwargs = mock_get_session.call_args[1]
+            self.assertEqual(128, kwargs['pool_size'])
+            self.assertIn(':pool=128', kwargs['session_key'])
+
+        with patch('darabonba.core.DaraCore._get_session', return_value=mock_session) as mock_get_session:
+            DaraCore.do_action(request, {})
+            kwargs = mock_get_session.call_args[1]
+            self.assertEqual(DEFAULT_POOL_MAXSIZE, kwargs['pool_size'])
+            self.assertIn(f':pool={DEFAULT_POOL_MAXSIZE}', kwargs['session_key'])
 
     def test_do_action(self):
         request = DaraRequest()
@@ -1063,15 +1093,17 @@ class TestCore(unittest.TestCase):
         request = DaraRequest()
         request.headers['host'] = "127.0.0.1:9999"
         request.protocol = "https"
-        session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
+        session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}:pool={DEFAULT_POOL_MAXSIZE}'
 
         # Test with TLSv1.2
         with patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
             mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
-            mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2',
+                                           pool_size=DEFAULT_POOL_MAXSIZE)
+            mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2',
+                                                     pool_size=DEFAULT_POOL_MAXSIZE)
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
 
@@ -1080,21 +1112,24 @@ class TestCore(unittest.TestCase):
             mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.3')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.3',
+                                           pool_size=DEFAULT_POOL_MAXSIZE)
             mock_get_adapter.assert_not_called()  # Should not call get_adapter again
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
 
         # Test with HTTP protocol
         request.protocol = "http"
-        session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}'
+        session_key = f'{request.protocol.lower()}://{request.headers["host"]}:{request.port}:pool={DEFAULT_POOL_MAXSIZE}'
 
         with patch('darabonba.core.DaraCore.get_adapter') as mock_get_adapter:
             mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
-            mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2',
+                                           pool_size=DEFAULT_POOL_MAXSIZE)
+            mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2',
+                                                     pool_size=DEFAULT_POOL_MAXSIZE)
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
 
@@ -1103,10 +1138,43 @@ class TestCore(unittest.TestCase):
             mock_adapter = Mock()
             mock_get_adapter.return_value = mock_adapter
 
-            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2')
+            session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2',
+                                           pool_size=DEFAULT_POOL_MAXSIZE)
             mock_get_adapter.assert_not_called()  # Should not call get_adapter again
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
+
+    def test_resolve_pool_maxsize(self):
+        self.assertEqual(DEFAULT_POOL_MAXSIZE, DaraCore._resolve_pool_maxsize(None))
+        self.assertEqual(DEFAULT_POOL_MAXSIZE, DaraCore._resolve_pool_maxsize({}))
+        self.assertEqual(DEFAULT_POOL_MAXSIZE, DaraCore._resolve_pool_maxsize({'maxIdleConns': 0}))
+        self.assertEqual(DEFAULT_POOL_MAXSIZE, DaraCore._resolve_pool_maxsize({'maxIdleConns': -1}))
+        self.assertEqual(DEFAULT_POOL_MAXSIZE, DaraCore._resolve_pool_maxsize({'maxIdleConns': 'bad'}))
+        self.assertEqual(100, DaraCore._resolve_pool_maxsize({'maxIdleConns': 100}))
+        self.assertEqual(50, DaraCore._resolve_pool_maxsize({'maxIdleConns': '50'}))
+
+    def test_get_adapter_respects_pool_size(self):
+        adapter = DaraCore.get_adapter('https', 'TLSv1.2', pool_size=128)
+        self.assertEqual(128, adapter._pool_maxsize)
+        self.assertEqual(DEFAULT_POOL_SIZE, adapter._pool_connections)
+
+        default_adapter = DaraCore.get_adapter('https', 'TLSv1.2')
+        self.assertEqual(DEFAULT_POOL_MAXSIZE, default_adapter._pool_maxsize)
+
+    def test_get_session_uses_custom_pool_size(self):
+        DaraCore._sessions.clear()
+        session_key = 'https://openapi.aligenie.com:80:pool=128'
+        session = DaraCore._get_session(session_key, 'https', 'TLSv1.2',
+                                       verify=True, pool_size=128)
+        adapter = session.get_adapter('https://openapi.aligenie.com/')
+        self.assertEqual(128, adapter._pool_maxsize)
+        # Different pool size should create a separate session
+        other_key = 'https://openapi.aligenie.com:80:pool=40'
+        other = DaraCore._get_session(other_key, 'https', 'TLSv1.2',
+                                     verify=True, pool_size=40)
+        self.assertIsNot(session, other)
+        self.assertEqual(40, other.get_adapter('https://openapi.aligenie.com/')._pool_maxsize)
+        DaraCore._sessions.clear()
 
 class TestGetBackoffTime(unittest.TestCase):
     def setUp(self):
