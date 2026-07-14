@@ -311,3 +311,164 @@ class TestStream(unittest.TestCase):
             mock_response.close.assert_called_once()
         
         asyncio.run(run_test())
+
+    def _fat_sse_chunks(self, include_bad_utf8=False):
+        chunks = [
+            b': comment\n',
+            b'id: 1\nevent: create\ndata: line1\ndata: line2\nretry: 3000\nretry: bad\n\n',
+            b'bare-data-line\n\n',
+            # leftover buffer after a completed data line triggers final flush
+            b'data: trailing\nleftover',
+        ]
+        if include_bad_utf8:
+            chunks.insert(2, b'\xff\xfe')
+        return chunks
+
+    def test_readable_isinstance_and_read_as_bytes_loop(self):
+        stream = BaseStream()
+        self.assertRaises(NotImplementedError, stream.read)
+        self.assertRaises(NotImplementedError, stream.__len__)
+        self.assertRaises(NotImplementedError, stream.__next__)
+        self.assertIsInstance(stream, READABLE)
+
+        with open(os.path.join(root_path, 'test.txt'), 'rb') as f:
+            self.assertIsInstance(f, READABLE)
+            self.assertIsInstance(f, STREAM_CLASS)
+
+        with open(os.path.join(root_path, 'test.txt'), 'wb') as f:
+            self.assertIsInstance(f, WRITABLE)
+            self.assertIsInstance(f, STREAM_CLASS)
+
+        with BytesIO(b'test') as bio:
+            self.assertIsInstance(bio, READABLE)
+            self.assertIsInstance(bio, STREAM_CLASS)
+            self.assertEqual(Stream.read_as_bytes(bio), b'test')
+
+    def test_to_readable(self):
+        readable = Stream.to_readable('hello')
+        self.assertEqual(readable.read(), b'hello')
+        readable = Stream.to_readable(b'bytes')
+        self.assertEqual(readable.read(), b'bytes')
+        bio = BytesIO(b'passthrough')
+        self.assertIs(Stream.to_readable(bio), bio)
+        with self.assertRaises(ValueError):
+            Stream.to_readable(123)
+
+    def _assert_fat_sse_results(self, results):
+        self.assertGreaterEqual(len(results), 3)
+        self.assertEqual(results[0].id, '1')
+        self.assertEqual(results[0].event, 'create')
+        self.assertEqual(results[0].data, 'line1\nline2')
+        self.assertEqual(results[0].retry, 3000)
+        self.assertEqual(results[1].data, 'bare-data-line')
+        self.assertEqual(results[2].data, 'trailing')
+
+    def test_read_as_sse_from_iter_content_edges(self):
+        mock_response = mock.MagicMock()
+        mock_response.iter_content.return_value = self._fat_sse_chunks(include_bad_utf8=True)
+        self._assert_fat_sse_results(list(Stream.read_as_sse(mock_response)))
+
+    def test_read_as_sse_sync_wrapper_edges(self):
+        mock_session = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        mock_response.iter_content.return_value = self._fat_sse_chunks(include_bad_utf8=True)
+        from darabonba.utils.stream import SyncSSEResponseWrapper
+        wrapper = SyncSSEResponseWrapper(mock_session, mock_response)
+        self._assert_fat_sse_results(list(Stream.read_as_sse(wrapper)))
+
+    def test_read_as_sse_async_wrapper_edges(self):
+        async def run_test():
+            mock_session = mock.MagicMock()
+
+            async def mock_session_close():
+                pass
+
+            mock_session.close = mock_session_close
+            mock_response = mock.MagicMock()
+            chunks = self._fat_sse_chunks()
+
+            async def iter_chunked(_size=8192):
+                for chunk in chunks:
+                    yield chunk
+
+            mock_response.content.iter_chunked = iter_chunked
+            mock_response.close = mock.MagicMock()
+
+            from darabonba.utils.stream import SSEResponseWrapper
+            wrapper = SSEResponseWrapper(mock_session, mock_response)
+            results = []
+            async for event in Stream.read_as_sse_async(wrapper):
+                results.append(event)
+            self._assert_fat_sse_results(results)
+
+        asyncio.run(run_test())
+
+    def test_read_as_sse_async_from_aiohttp_content(self):
+        async def run_test():
+            chunks = self._fat_sse_chunks(include_bad_utf8=True)
+
+            async def iter_chunked(_size=8192):
+                for chunk in chunks:
+                    yield chunk
+
+            mock_response = mock.MagicMock()
+            mock_response.content.iter_chunked = iter_chunked
+            results = []
+            async for event in Stream.read_as_sse_async(mock_response):
+                results.append(event)
+            self._assert_fat_sse_results(results)
+
+        asyncio.run(run_test())
+
+    def test_read_as_sse_plain_iterable_fallback(self):
+        chunks = self._fat_sse_chunks()
+        self._assert_fat_sse_results(list(Stream.read_as_sse(chunks)))
+
+        async def run_test():
+            async def agen():
+                for chunk in chunks:
+                    yield chunk
+
+            results = []
+            async for event in Stream.read_as_sse_async(agen()):
+                results.append(event)
+            self._assert_fat_sse_results(results)
+
+        asyncio.run(run_test())
+
+    def test_sse_response_wrapper_read_cache_and_aiter(self):
+        async def run_test():
+            mock_session = mock.MagicMock()
+
+            async def mock_session_close():
+                pass
+
+            mock_session.close = mock_session_close
+            mock_response = mock.MagicMock()
+            calls = {'n': 0}
+
+            async def mock_read():
+                calls['n'] += 1
+                return b'cached-body'
+
+            mock_response.read = mock_read
+            mock_response.close = mock.MagicMock()
+
+            async def iter_chunked(_size=8192):
+                yield b'data: from-aiter\n\n'
+
+            mock_response.content.iter_chunked = iter_chunked
+
+            from darabonba.utils.stream import SSEResponseWrapper
+            wrapper = SSEResponseWrapper(mock_session, mock_response)
+            self.assertEqual(await wrapper.read(), b'cached-body')
+            self.assertEqual(await wrapper.read(), b'cached-body')
+            self.assertEqual(calls['n'], 1)
+
+            wrapper2 = SSEResponseWrapper(mock_session, mock_response)
+            chunks = []
+            async for chunk in wrapper2:
+                chunks.append(chunk)
+            self.assertEqual(chunks, [b'data: from-aiter\n\n'])
+
+        asyncio.run(run_test())

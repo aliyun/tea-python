@@ -24,6 +24,7 @@ from darabonba.policy.retry import RetryOptions, RetryPolicyContext
 DEFAULT_CONNECT_TIMEOUT = 5000
 DEFAULT_READ_TIMEOUT = 10000
 DEFAULT_POOL_SIZE = 10
+DEFAULT_POOL_MAXSIZE = DEFAULT_POOL_SIZE * 4
 MAX_DELAY_TIME = 120 * 1000
 MIN_DELAY_TIME = 100
 
@@ -61,8 +62,8 @@ class _TLSAdapter(adapters.HTTPAdapter):
 
 class DaraCore:
     _sessions = {}
-    http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
-    https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_SIZE * 4)
+    http_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_MAXSIZE)
+    https_adapter = adapters.HTTPAdapter(pool_connections=DEFAULT_POOL_SIZE, pool_maxsize=DEFAULT_POOL_MAXSIZE)
 
     @staticmethod
     def to_json_string(
@@ -79,6 +80,24 @@ class DaraCore:
         )
 
     @staticmethod
+    def _resolve_pool_maxsize(runtime_option=None) -> int:
+        """
+        Resolve urllib3 / aiohttp pool size from runtime maxIdleConns.
+        Aligns with Go tea: MaxIdleConns / MaxIdleConnsPerHost.
+        """
+        runtime_option = runtime_option or {}
+        max_idle = runtime_option.get('maxIdleConns')
+        if max_idle is None:
+            return DEFAULT_POOL_MAXSIZE
+        try:
+            max_idle = int(max_idle)
+        except (TypeError, ValueError):
+            return DEFAULT_POOL_MAXSIZE
+        if max_idle > 0:
+            return max_idle
+        return DEFAULT_POOL_MAXSIZE
+
+    @staticmethod
     def _set_tls_minimum_version(sls_context, tls_min_version):
         context = sls_context
         if tls_min_version is not None:
@@ -93,14 +112,18 @@ class DaraCore:
         return context
     
     @staticmethod
-    def get_adapter(prefix, tls_min_version: str = None):
+    def get_adapter(prefix, tls_min_version: str = None, pool_size: int = None):
+        pool_maxsize = pool_size if pool_size is not None and pool_size > 0 else DEFAULT_POOL_MAXSIZE
         ca_cert = certifi.where()
         context = ssl.create_default_context()
         if ca_cert and prefix.upper() == 'HTTPS':
             context = DaraCore._set_tls_minimum_version(context, tls_min_version)
             context.load_verify_locations(ca_cert)
-        adapter = _TLSAdapter(ssl_context=context, pool_connections=DEFAULT_POOL_SIZE,
-                              pool_maxsize=DEFAULT_POOL_SIZE * 4)
+        adapter = _TLSAdapter(
+            ssl_context=context,
+            pool_connections=DEFAULT_POOL_SIZE,
+            pool_maxsize=pool_maxsize,
+        )
         return adapter
 
     @staticmethod
@@ -194,6 +217,7 @@ class DaraCore:
             if not proxy:
                 proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
+        pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
         connector = None
         ca_cert = certifi.where()
         ssl_context = None
@@ -207,7 +231,9 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            connector = aiohttp.TCPConnector(
+                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
+            )
         elif ca_cert and request.protocol.upper() == 'HTTPS' and verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
@@ -218,9 +244,12 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            connector = aiohttp.TCPConnector(
+                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
+            )
         else:
             verify = False
+            connector = aiohttp.TCPConnector(limit=pool_maxsize, limit_per_host=pool_maxsize)
 
         timeout = aiohttp.ClientTimeout(
             sock_read=read_timeout,
@@ -310,9 +339,11 @@ class DaraCore:
         host = request.headers.get('host')
         host = host.rstrip('/')
 
-        session_key = f'{request.protocol.lower()}://{host}:{request.port}'
+        pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}:pool={pool_maxsize}'
         session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
-                                       tls_min_version=tls_min_version, verify=verify)
+                                       tls_min_version=tls_min_version, verify=verify,
+                                       pool_size=pool_maxsize)
         try:
             resp = session.send(
                 p,
@@ -374,6 +405,7 @@ class DaraCore:
             if not proxy:
                 proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
+        pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
         connector = None
         ca_cert = certifi.where()
         ssl_context = None
@@ -387,7 +419,9 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            connector = aiohttp.TCPConnector(
+                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
+            )
         elif ca_cert and request.protocol.upper() == 'HTTPS' and verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
@@ -398,9 +432,12 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            connector = aiohttp.TCPConnector(
+                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
+            )
         else:
             verify = False
+            connector = aiohttp.TCPConnector(limit=pool_maxsize, limit_per_host=pool_maxsize)
 
         timeout = aiohttp.ClientTimeout(
             sock_read=read_timeout,
@@ -496,9 +533,11 @@ class DaraCore:
         host = request.headers.get('host')
         host = host.rstrip('/') if host else ''
 
-        session_key = f'{request.protocol.lower()}://{host}:{request.port}'
+        pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}:pool={pool_maxsize}'
         session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
-                                    tls_min_version=tls_min_version, verify=verify)
+                                    tls_min_version=tls_min_version, verify=verify,
+                                    pool_size=pool_maxsize)
         try:
             resp = session.send(
                 p,
@@ -652,15 +691,21 @@ class DaraCore:
             return model
 
     @staticmethod
-    def _get_session(session_key: str, protocol: str, tls_min_version: str = None, verify: bool = True):
+    def _get_session(session_key: str, protocol: str, tls_min_version: str = None,
+                     verify: bool = True, pool_size: int = None):
         if session_key not in DaraCore._sessions:
             session = Session()
-            adapter = DaraCore.get_adapter(protocol, tls_min_version)
+            adapter = DaraCore.get_adapter(protocol, tls_min_version, pool_size=pool_size)
             if protocol.upper() == 'HTTPS':
                 if verify:
                     session.mount('https://', adapter)
                 else:
-                    session.mount('https://', DaraCore.https_adapter)
+                    # Honor configured pool size even when SSL verify is disabled.
+                    insecure_adapter = adapters.HTTPAdapter(
+                        pool_connections=DEFAULT_POOL_SIZE,
+                        pool_maxsize=pool_size if pool_size is not None and pool_size > 0 else DEFAULT_POOL_MAXSIZE,
+                    )
+                    session.mount('https://', insecure_adapter)
             else:
                 session.mount('http://', adapter)
             DaraCore._sessions[session_key] = session
