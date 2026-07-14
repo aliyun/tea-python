@@ -6,6 +6,7 @@ import threading
 import unittest
 from base64 import b64encode
 from datetime import datetime
+from unittest import mock
 from urllib.parse import urlparse
 
 import websocket as ws_client
@@ -15,6 +16,7 @@ from darabonba.runtime import RuntimeOptions
 from darabonba.websocket import (
     AbstractWebSocketHandler,
     DefaultWebSocketClient,
+    STATE_CONNECTED,
     WebSocketMessage,
     WebSocketMessageType,
     WebSocketSessionInfo,
@@ -522,6 +524,137 @@ class TestWebSocket(unittest.TestCase):
             self.assertEqual('general', header.get('sec-websocket-protocol'))
         finally:
             ws_lib.WebSocketApp.__init__ = original_init
+
+    def _make_client_for_unit(self, enable_reconnect=True, max_times=5):
+        handler = MockWebSocketHandler()
+        client = new_default_websocket_client(handler)
+        request = DaraRequest()
+        request.protocol = 'ws'
+        request.domain = '127.0.0.1:19999'
+        request.pathname = '/'
+        request.headers = {'host': '127.0.0.1:19999'}
+        client.request = request
+        client.runtime_object = RuntimeOptions(
+            web_socket_enable_reconnect=enable_reconnect,
+            web_socket_max_reconnect_times=max_times,
+            web_socket_reconnect_interval=1,
+            web_socket_write_timeout=50,
+        )
+        client.reconnect_interval = 1
+        client.max_reconnect_times = max_times
+        client.write_timeout = 50
+        client._sleep_interruptible = lambda _ms: True
+        client._cleanup_resources = mock.MagicMock()
+        return client, handler
+
+    def test_reconnect_disabled_and_limits(self):
+        client, _handler = self._make_client_for_unit(enable_reconnect=False)
+        with self.assertRaisesRegex(Exception, 'reconnect is disabled'):
+            client.reconnect()
+
+        client, _handler = self._make_client_for_unit(enable_reconnect=True, max_times=1)
+        client.reconnect_count = 1
+        with self.assertRaisesRegex(Exception, 'max reconnect times reached'):
+            client.reconnect()
+
+        client, _handler = self._make_client_for_unit()
+        client.state = STATE_CONNECTED
+        with self.assertRaisesRegex(Exception, 'already connected'):
+            client.reconnect()
+
+        client, _handler = self._make_client_for_unit()
+        client._abort_event.set()
+        with self.assertRaisesRegex(Exception, 'connection aborted'):
+            client.reconnect()
+
+    def test_reconnect_already_in_progress(self):
+        client, _handler = self._make_client_for_unit()
+        self.assertTrue(client._reconnect_lock.acquire(blocking=False))
+        try:
+            with self.assertRaisesRegex(Exception, 'reconnect already in progress'):
+                client.reconnect()
+        finally:
+            client._reconnect_lock.release()
+
+    def test_reconnect_success_and_graceful(self):
+        client, _handler = self._make_client_for_unit()
+        client.connect = mock.MagicMock(return_value=mock.MagicMock())
+        result = client.reconnect()
+        self.assertIsNotNone(result)
+        self.assertEqual(0, client.reconnect_count)
+        client.connect.assert_called_once()
+
+        client, _handler = self._make_client_for_unit()
+        client.session = WebSocketSessionInfo(session_id='sid-1')
+        client.connect = mock.MagicMock(return_value=mock.MagicMock())
+        client.reconnect_gracefully()
+        self.assertEqual('sid-1', client.request.headers.get('X-Acs-Ws-Session-Id'))
+
+        client, _handler = self._make_client_for_unit()
+        client.session = None
+        with self.assertRaisesRegex(Exception, 'graceful reconnection requires existing session ID'):
+            client.reconnect_gracefully()
+
+    def test_send_binary_and_on_message_close(self):
+        client, handler = self._make_client_for_unit()
+        with self.assertRaisesRegex(Exception, 'not connected'):
+            client.send_binary(b'x')
+
+        client.state = STATE_CONNECTED
+        client.ws_app = mock.MagicMock()
+        client.send_binary(b'bin-data')
+        client.ws_app.send.assert_called()
+
+        client.session = WebSocketSessionInfo(session_id='sid')
+        client.stopped = False
+        client._on_message(None, 'hello-text')
+        client._on_message(None, b'hello-bin')
+        self.assertEqual(2, handler.message_received_count)
+
+        def boom(_session, _msg):
+            raise RuntimeError('handler failed')
+
+        handler.handle_raw_message = boom
+        client._on_message(None, 'fail')
+        self.assertEqual(1, handler.error_count)
+
+        client.reconnect = mock.MagicMock(side_effect=Exception('skip'))
+        client._on_close(None, 1006, 'abnormal')
+        client.reconnect.assert_called_once()
+
+    def test_configure_socks5_and_tls_cert(self):
+        client, _handler = self._make_client_for_unit()
+        runtime = RuntimeOptions(socks_5proxy='127.0.0.1:1080')
+        socks = client.configure_socks5_proxy(runtime)
+        self.assertEqual('socks5', socks.get('proxy_type'))
+        self.assertEqual('127.0.0.1:1080', socks.get('http_proxy_host'))
+
+        parsed = urlparse('wss://example.com/')
+        request = DaraRequest()
+        request.headers = {}
+        proxy = client._configure_proxy(parsed, runtime, request)
+        self.assertEqual('socks5', proxy.get('proxy_type'))
+
+        tls = client._configure_tls(
+            RuntimeOptions(cert='/c.pem', key='/k.pem', ca='/ca.pem', ignore_ssl=False),
+            'wss',
+        )
+        self.assertEqual('/c.pem', tls.get('certfile'))
+        self.assertEqual('/k.pem', tls.get('keyfile'))
+        self.assertEqual('/ca.pem', tls.get('ca_certs'))
+
+    def test_send_with_timeout_paths(self):
+        client, _handler = self._make_client_for_unit()
+        client.write_timeout = 1000
+        client._send_with_timeout(lambda: None)
+
+        client.write_timeout = 10
+
+        def blockers():
+            raise TimeoutError('timeout')
+
+        with self.assertRaises(Exception):
+            client._send_with_timeout(blockers)
 
 
 if __name__ == '__main__':

@@ -150,3 +150,38 @@ class TestTypeCheckDecorator(unittest.TestCase):
             self.assertEqual(len(w), 1)
             self.assertTrue(issubclass(w[-1].category, UserWarning))
 
+    def test_type_check_kwargs_and_static_class(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            @type_check(a=int, b=str)
+            def kw_only(a, b):
+                return f"{a}-{b}"
+
+            self.assertEqual(kw_only(a=1, b="x"), "1-x")
+            kw_only(a=1, b=2)
+            self.assertTrue(any(issubclass(x.category, UserWarning) for x in w))
+
+        class Demo:
+            @type_check(int)
+            @staticmethod
+            def static_add(n):
+                return n
+
+            @type_check(object, int)
+            @classmethod
+            def class_add(cls, n):
+                return n
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            self.assertEqual(Demo.static_add(1), 1)
+            Demo.static_add("x")
+            self.assertTrue(any(issubclass(x.category, UserWarning) for x in w))
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            self.assertEqual(Demo.class_add(1), 1)
+            Demo.class_add("x")
+            self.assertTrue(any(issubclass(x.category, UserWarning) for x in w))
+

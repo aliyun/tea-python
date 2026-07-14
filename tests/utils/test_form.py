@@ -109,7 +109,71 @@ class TestForm(unittest.TestCase):
         form_str = b''.join(body)
         self.assertEqual(content.encode(), form_str)
         self.assertEqual(len(content.encode()), len(form_str))
-        
+
+    def test_to_form_string_skips_readable(self):
+        form = {
+            'a': '1',
+            'f': BytesIO(b'x'),
+        }
+        self.assertEqual('a=1', Form.to_form_string(form))
+
+    def test_file_form_chunked_len_and_refresh(self):
+        content = b'0123456789abcdef'
+        file_field = FileField(
+            filename='chunk.txt',
+            content_type='text/plain',
+            content=BytesIO(content),
+        )
+        form = {
+            'k': 'v',
+            'file': file_field,
+        }
+        body = Form.to_file_form(form, 'boundary')
+        total_len = len(body)
+        self.assertGreater(total_len, 0)
+
+        chunks = []
+        while True:
+            chunk = body.read(size=32)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        joined = b''.join(chunks)
+        self.assertEqual(total_len, len(joined))
+        self.assertIn(b'chunk.txt', joined)
+
+        body.refresh()
+        refreshed = body.read()
+        self.assertIn(b'chunk.txt', refreshed)
+
+        class StrReadable:
+            def __init__(self, data):
+                self._data = data
+                self._pos = 0
+                self.len = len(data)
+
+            def read(self, size=-1):
+                if self._pos >= len(self._data):
+                    return ''
+                if size is None or size < 0:
+                    size = len(self._data) - self._pos
+                out = self._data[self._pos:self._pos + size]
+                self._pos += len(out)
+                return out
+
+            def seek(self, *_args):
+                self._pos = 0
+
+        str_field = FileField(
+            filename='s.txt',
+            content_type='text/plain',
+            content=StrReadable('hello-str'),
+        )
+        body2 = Form.to_file_form({'file': str_field}, 'b')
+        data = b''.join(list(body2))
+        self.assertIn(b'hello-str', data)
+
+
 class TestFileField(unittest.TestCase):
     
     def test_file_field_validate(self):
