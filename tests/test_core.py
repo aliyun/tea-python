@@ -1461,6 +1461,7 @@ class TestRetry(unittest.TestCase):
         })
         self.assertEqual(DaraCore.get_backoff_time(option, ctx), 10)
         
+        # period * 2^retries: period=5, retries=2 → 5*4=20
         exponentialPolicy = BackoffPolicy.new_backoff_policy({"policy": "Exponential", "period": 5, "cap": 10000})
         condition3 = RetryCondition({
             'maxAttempts': 3,
@@ -1472,7 +1473,21 @@ class TestRetry(unittest.TestCase):
             'retryable': True,
             'retryCondition': [condition3]
         })
-        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 1024)
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 20)
+
+        # period=1000ms, retries=2 → 1000*4=4000 (must not treat period as exponent)
+        exponentialPolicy = BackoffPolicy.new_backoff_policy({"policy": "Exponential", "period": 1000, "cap": 10000})
+        condition3b = RetryCondition({
+            'maxAttempts': 3,
+            'exception': ['AErr'],
+            'errorCode': ['A1Err'],
+            "backoff": exponentialPolicy,
+        })
+        option = RetryOptions({
+            'retryable': True,
+            'retryCondition': [condition3b]
+        })
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 4000)
         
         exponentialPolicy = BackoffPolicy.new_backoff_policy({"policy": "Exponential", "period": 10, "cap": 10000})
         condition4 = RetryCondition({
@@ -1485,7 +1500,7 @@ class TestRetry(unittest.TestCase):
             'retryable': True,
             'retryCondition': [condition4]
         })
-        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 10000)
+        self.assertEqual(DaraCore.get_backoff_time(option, ctx), 40)
         
         equalJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "EqualJitter", "period": 5, "cap": 10000})
         condition5 = RetryCondition({
@@ -1499,9 +1514,9 @@ class TestRetry(unittest.TestCase):
             'retryCondition': [condition5]
         })
         backoffTime = DaraCore.get_backoff_time(option, ctx)
-        self.assertTrue(backoffTime > 512 and backoffTime < 1024)
+        self.assertTrue(backoffTime >= 10 and backoffTime <= 20)
         
-        equalJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "EqualJitter", "period": 10, "cap": 10000})
+        equalJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "EqualJitter", "period": 1000, "cap": 10000})
         condition6 = RetryCondition({
             'maxAttempts': 3,
             'exception': ['AErr'],
@@ -1513,7 +1528,7 @@ class TestRetry(unittest.TestCase):
             'retryCondition': [condition6]
         })
         backoffTime = DaraCore.get_backoff_time(option, ctx)
-        self.assertTrue(backoffTime > 5000 and backoffTime < 10000)
+        self.assertTrue(backoffTime >= 2000 and backoffTime <= 4000)
         
         fullJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "FullJitter", "period": 5, "cap": 10000})
         condition7 = RetryCondition({
@@ -1527,7 +1542,7 @@ class TestRetry(unittest.TestCase):
             'retryCondition': [condition7]
         })
         backoffTime = DaraCore.get_backoff_time(option, ctx)
-        self.assertTrue(backoffTime > 0 and backoffTime < 1024)
+        self.assertTrue(backoffTime >= 0 and backoffTime <= 20)
         
         fullJitterPolicy = BackoffPolicy.new_backoff_policy({"policy": "ExponentialWithFullJitter", "period": 10, "cap": 10000})
         condition8 = RetryCondition({
