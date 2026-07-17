@@ -72,30 +72,34 @@ class TestBackoffPolicy(unittest.TestCase):
         policy = ExponentialBackoffPolicy({'period': 1, 'cap': 10000})
         ctx = RetryPolicyContext(retries_attempted=5)
         delay_time = policy.get_delay_time(ctx)
-        self.assertGreaterEqual(delay_time, 0)
-        self.assertLessEqual(delay_time, 10000)
+        self.assertEqual(delay_time, 32)  # 1 * 2^5
+        # period=1000 must multiply, not enter the exponent
+        policy = ExponentialBackoffPolicy({'period': 1000, 'cap': 10000})
+        self.assertEqual(policy.get_delay_time(RetryPolicyContext(retries_attempted=1)), 2000)
+        self.assertEqual(policy.get_delay_time(RetryPolicyContext(retries_attempted=2)), 4000)
+        self.assertEqual(policy.get_delay_time(RetryPolicyContext(retries_attempted=4)), 10000)  # capped
         option = {'policy': 'Exponential', 'period': 100, 'cap': 100000}
         exponential_policy = ExponentialBackoffPolicy(option)
         expected_map = {'policy': 'Exponential', 'period': 100, 'cap': 100000}
         self.assertEqual(exponential_policy.to_map(), expected_map)
 
     def test_equal_jitter_backoff_policy(self):
-        policy = EqualJitterBackoffPolicy({'period': 1, 'cap': 10000})
-        ctx = RetryPolicyContext(retries_attempted=5)
+        policy = EqualJitterBackoffPolicy({'period': 1000, 'cap': 10000})
+        ctx = RetryPolicyContext(retries_attempted=2)
         delay_time = policy.get_delay_time(ctx)
-        self.assertGreaterEqual(delay_time, 0)
-        self.assertLessEqual(delay_time, 10000)
+        self.assertGreaterEqual(delay_time, 2000)
+        self.assertLessEqual(delay_time, 4000)
         option = {'policy': 'EqualJitter', 'period': 100, 'cap': 100000}
         equal_jitter_policy = EqualJitterBackoffPolicy(option)
         expected_map = {'policy': 'EqualJitter', 'period': 100, 'cap': 100000}
         self.assertEqual(equal_jitter_policy.to_map(), expected_map)
 
     def test_full_jitter_backoff_policy(self):
-        policy = FullJitterBackoffPolicy({'period': 1, 'cap': 10000})
-        ctx = RetryPolicyContext(retries_attempted=5)
+        policy = FullJitterBackoffPolicy({'period': 1000, 'cap': 10000})
+        ctx = RetryPolicyContext(retries_attempted=2)
         delay_time = policy.get_delay_time(ctx)
         self.assertGreaterEqual(delay_time, 0)
-        self.assertLessEqual(delay_time, 10000)
+        self.assertLessEqual(delay_time, 4000)
         option = {'policy': 'FullJitter', 'period': 100, 'cap': 100000}
         full_jitter_policy = FullJitterBackoffPolicy(option)
         expected_map = {'policy': 'FullJitter', 'period': 100, 'cap': 100000}

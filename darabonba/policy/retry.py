@@ -99,7 +99,8 @@ class ExponentialBackoffPolicy(BackoffPolicy):
         }
 
     def get_delay_time(self, ctx: 'RetryPolicyContext') -> int:
-        random_time = min(2 ** (ctx.retries_attempted * self.period), self.cap)
+        # period * 2^retries (align with C# / standard exponential backoff)
+        random_time = min(self.period * (2 ** ctx.retries_attempted), self.cap)
         return random_time
 
 class EqualJitterBackoffPolicy(BackoffPolicy):
@@ -117,7 +118,7 @@ class EqualJitterBackoffPolicy(BackoffPolicy):
         }
 
     def get_delay_time(self, ctx: 'RetryPolicyContext') -> int:
-        ceil = min(self.cap, 2 ** (ctx.retries_attempted * self.period))
+        ceil = min(self.cap, self.period * (2 ** ctx.retries_attempted))
         return ceil // 2 + random.randint(0, ceil // 2)
 
 class FullJitterBackoffPolicy(BackoffPolicy):
@@ -134,7 +135,7 @@ class FullJitterBackoffPolicy(BackoffPolicy):
         }
 
     def get_delay_time(self, ctx: 'RetryPolicyContext') -> int:
-        ceil = min(self.cap, 2 ** (ctx.retries_attempted * self.period))
+        ceil = min(self.cap, self.period * (2 ** ctx.retries_attempted))
         return random.randint(0, ceil)
 
 class RetryCondition:
