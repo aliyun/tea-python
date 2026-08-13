@@ -1,3 +1,6 @@
+### 2026-08-13 Version 1.0.10
+* Fix SyncSSEResponseWrapper.read() to accept size so tea-util can parse SSE HTTP 4xx/5xx error bodies.
+
 ### 2026-07-13 Version 1.0.9
 * Honor RuntimeOptions.maxIdleConns for urllib3 / aiohttp connection pool size (#100).
 

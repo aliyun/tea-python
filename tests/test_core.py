@@ -1936,3 +1936,14 @@ class TestSSEActions(unittest.TestCase):
         mock_response.close.assert_called_once()
         mock_session.close.assert_called_once()
 
+        # tea-util error path: stream.read(1024) must not TypeError
+        mock_session2 = Mock()
+        mock_response2 = Mock()
+        mock_response2.content = b'{"error":"dataagent not found"}'
+        mock_response2.close = Mock()
+        mock_session2.close = Mock()
+        wrapper2 = SyncSSEResponseWrapper(mock_session2, mock_response2)
+        chunk = wrapper2.read(1024)
+        self.assertEqual(chunk, b'{"error":"dataagent not found"}')
+        self.assertEqual(wrapper2.read(1024), b'')
+

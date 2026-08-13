@@ -41,6 +41,8 @@ class SyncSSEResponseWrapper:
         self.session = session
         self.response = response
         self._closed = False
+        self._content_cache = None
+        self._offset = 0
     
     def close(self):
         if not self._closed:
@@ -58,11 +60,25 @@ class SyncSSEResponseWrapper:
         finally:
             self.close()
     
-    def read(self) -> bytes:
-        try:
-            return self.response.content
-        finally:
-            self.close()
+    def read(self, size=None):
+        # Readable-stream contract: tea-util Client.read_as_bytes does
+        # stream.read(1024) in a loop. size=None keeps the old read() behaviour.
+        if self._content_cache is None:
+            try:
+                content = self.response.content
+                if content is None:
+                    content = b''
+                elif isinstance(content, str):
+                    content = content.encode('utf-8')
+                self._content_cache = content
+            finally:
+                self.close()
+        if size is None or size < 0:
+            data = self._content_cache[self._offset:]
+        else:
+            data = self._content_cache[self._offset:self._offset + size]
+        self._offset += len(data)
+        return data
 
 class SSEResponseWrapper:
     def __init__(self, session: aiohttp.ClientSession, response: aiohttp.ClientResponse):
