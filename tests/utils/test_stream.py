@@ -472,3 +472,62 @@ class TestStream(unittest.TestCase):
             self.assertEqual(chunks, [b'data: from-aiter\n\n'])
 
         asyncio.run(run_test())
+
+    def _make_sync_sse_wrapper(self, content):
+        mock_session = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        mock_response.content = content
+        mock_response.close = mock.MagicMock()
+        mock_session.close = mock.MagicMock()
+        from darabonba.utils.stream import SyncSSEResponseWrapper
+        return SyncSSEResponseWrapper(mock_session, mock_response), mock_session, mock_response
+
+    def _read_like_tea_util(self, stream, size=1024):
+        # Mirrors alibabacloud_tea_util.client.Client.__read_part / read_as_bytes
+        buf = b''
+        while True:
+            part = stream.read(size)
+            if part:
+                buf += part
+            else:
+                return buf
+
+    def test_sync_sse_wrapper_read_accepts_size(self):
+        payload = b'{"errorCode":"AgentNotExist","errorMessage":"dataagent not found","requestId":"rid-1"}'
+        wrapper, mock_session, mock_response = self._make_sync_sse_wrapper(payload)
+
+        first = wrapper.read(16)
+        self.assertEqual(first, payload[:16])
+        rest = wrapper.read(1024)
+        self.assertEqual(first + rest, payload)
+        self.assertEqual(wrapper.read(1024), b'')
+        mock_response.close.assert_called_once()
+        mock_session.close.assert_called_once()
+
+    def test_sync_sse_wrapper_read_none_returns_remainder(self):
+        payload = b'test content'
+        wrapper, mock_session, mock_response = self._make_sync_sse_wrapper(payload)
+        self.assertEqual(wrapper.read(), payload)
+        self.assertEqual(wrapper.read(), b'')
+        mock_response.close.assert_called_once()
+        mock_session.close.assert_called_once()
+
+    def test_sync_sse_wrapper_read_as_json_error_body_like_tea_util(self):
+        import json
+        payload = (
+            b'{"errorCode":"AgentNotExist","errorMessage":"dataagent not found",'
+            b'"requestId":"rid-404"}'
+        )
+        wrapper, _, _ = self._make_sync_sse_wrapper(payload)
+        raw = self._read_like_tea_util(wrapper, 1024)
+        self.assertEqual(raw, payload)
+        parsed = json.loads(raw.decode('utf-8'))
+        self.assertEqual(parsed['errorMessage'], 'dataagent not found')
+        self.assertEqual(parsed['requestId'], 'rid-404')
+
+    def test_sync_sse_wrapper_chunked_read_converges(self):
+        payload = b'x' * 2500
+        wrapper, _, _ = self._make_sync_sse_wrapper(payload)
+        raw = self._read_like_tea_util(wrapper, 1024)
+        self.assertEqual(raw, payload)
+        self.assertEqual(len(raw), 2500)
