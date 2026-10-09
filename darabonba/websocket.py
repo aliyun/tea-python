@@ -10,8 +10,11 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import websocket
+from websocket import _http as _ws_http
 from websocket._abnf import ABNF
+from websocket._socket import DEFAULT_SOCKET_OPTION
 
+from darabonba.core import create_ipv4_connection
 from darabonba.request import DaraRequest
 from darabonba.response import DaraResponse
 from darabonba.runtime import RuntimeOptions
@@ -102,6 +105,40 @@ def get_web_socket_handshake_timeout(runtime: Any) -> Optional[int]:
 
 def get_web_socket_handler(runtime: Any):
     return _get_runtime_value(runtime, 'webSocketHandler', 'web_socket_handler')
+
+
+def get_ipv4_only(runtime: Any) -> bool:
+    value = _get_runtime_value(runtime, 'ipv4Only', 'ipv4_only')
+    if isinstance(value, str):
+        return value.strip().lower() == 'true'
+    return bool(value)
+
+
+def _open_ipv4_socket(parsed: Any, sslopt: Dict[str, Any], proxy_kwargs: Dict[str, Any], connect_timeout: int):
+    """
+    Dial the websocket target (or its HTTP proxy) over IPv4 only. websocket-client uses a
+    pre-initialized socket as-is, so the proxy CONNECT tunnel and TLS are set up here.
+    """
+    if proxy_kwargs.get('proxy_type') == 'socks5':
+        raise ValueError('ipv4Only is not supported together with socks5Proxy for websocket connections')
+
+    is_secure = parsed.scheme in ('wss', 'https')
+    host = parsed.hostname
+    port = parsed.port or (443 if is_secure else 80)
+    proxy_host = proxy_kwargs.get('http_proxy_host')
+    target = (proxy_host, proxy_kwargs.get('http_proxy_port')) if proxy_host else (host, port)
+
+    sock = create_ipv4_connection(target, connect_timeout / 1000, socket_options=DEFAULT_SOCKET_OPTION)
+    try:
+        if proxy_host:
+            sock = _ws_http._tunnel(sock, host, port, None)
+        if is_secure:
+            sock = _ws_http._ssl_socket(sock, sslopt, host)
+    except Exception:
+        sock.close()
+        raise
+    sock.settimeout(websocket.getdefaulttimeout())
+    return sock
 
 
 def new_websocket_response(
@@ -205,6 +242,14 @@ class DefaultWebSocketClient:
         sslopt = self._configure_tls(runtime_object, parsed.scheme)
         proxy_kwargs = self._configure_proxy(parsed, runtime_object, request)
 
+        prepared_socket = None
+        if get_ipv4_only(runtime_object):
+            try:
+                prepared_socket = _open_ipv4_socket(parsed, sslopt, proxy_kwargs, connect_timeout)
+            except Exception:
+                self.state = STATE_DISCONNECTED
+                raise
+
         connected_event = threading.Event()
 
         def on_open(ws_app):
@@ -283,6 +328,7 @@ class DefaultWebSocketClient:
             on_error=on_error,
             on_close=self._on_close,
             on_pong=self._on_pong,
+            socket=prepared_socket,
         )
 
         run_kwargs = {
@@ -290,7 +336,8 @@ class DefaultWebSocketClient:
             'ping_interval': 0,
             'ping_timeout': None,
         }
-        run_kwargs.update(proxy_kwargs)
+        if prepared_socket is None:
+            run_kwargs.update(proxy_kwargs)
 
         self._ws_thread = threading.Thread(
             target=self.ws_app.run_forever,
