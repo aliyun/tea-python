@@ -108,7 +108,7 @@ def get_web_socket_handler(runtime: Any):
 
 
 def get_ipv4_only(runtime: Any) -> bool:
-    value = _get_runtime_value(runtime, 'ipv4Only', 'ipv4_only')
+    value = _get_runtime_value(runtime, 'ipv4Only')
     if isinstance(value, str):
         return value.strip().lower() == 'true'
     return bool(value)
