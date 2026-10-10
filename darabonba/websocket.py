@@ -568,6 +568,7 @@ class DefaultWebSocketClient:
             return proxy_kwargs
 
         proxy_parsed = urlparse(proxy_url)
+        proxy_kwargs['proxy_type'] = 'http'
         proxy_kwargs['http_proxy_host'] = proxy_parsed.hostname
         proxy_kwargs['http_proxy_port'] = proxy_parsed.port or (
             443 if protocol in ('wss', 'https') else 80
