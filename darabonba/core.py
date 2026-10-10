@@ -8,7 +8,11 @@ import time
 import re
 import certifi
 import json
+import socket
 from requests import status_codes, adapters, PreparedRequest
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.exceptions import ConnectTimeoutError, NewConnectionError
 from typing import Any, Dict, Optional, Union
 from enum import Enum
 from urllib.parse import urlencode, urlparse
@@ -58,6 +62,108 @@ class _TLSAdapter(adapters.HTTPAdapter):
         """Override the init_poolmanager method to set the SSL."""
         kwargs['ssl_context'] = self.ssl_context
         super().init_poolmanager(*args, **kwargs)
+
+
+def _is_ipv4_only(runtime_option) -> bool:
+    if not runtime_option:
+        return False
+    value = runtime_option.get('ipv4Only')
+    if isinstance(value, str):
+        return value.strip().lower() == 'true'
+    return bool(value)
+
+
+def create_ipv4_connection(address, timeout=None, source_address=None, socket_options=None):
+    """
+    Like socket.create_connection, but only resolves and dials AF_INET
+    addresses, without touching any process-wide resolver setting.
+    """
+    host, port = address
+    if host.startswith('['):
+        host = host.strip('[]')
+    err = None
+    for af, socktype, proto, _, sa in socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM):
+        sock = None
+        try:
+            sock = socket.socket(af, socktype, proto)
+            for opt in socket_options or ():
+                sock.setsockopt(*opt)
+            # urllib3 passes a sentinel object for "use the default timeout".
+            if timeout is None or isinstance(timeout, (int, float)):
+                sock.settimeout(timeout)
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(sa)
+            return sock
+        except OSError as e:
+            err = e
+            if sock is not None:
+                sock.close()
+    if err is not None:
+        raise err
+    raise OSError(f'getaddrinfo returned no IPv4 address for {host}')
+
+
+class _IPv4ConnectionMixin:
+    def _new_conn(self):
+        try:
+            return create_ipv4_connection(
+                (self._dns_host, self.port),
+                self.timeout,
+                source_address=self.source_address,
+                socket_options=self.socket_options,
+            )
+        except socket.timeout as e:
+            raise ConnectTimeoutError(
+                self, f'Connection to {self.host} timed out. (connect timeout={self.timeout})'
+            ) from e
+        except OSError as e:
+            raise NewConnectionError(self, f'Failed to establish a new IPv4 connection: {e}') from e
+
+
+class _IPv4HTTPConnection(_IPv4ConnectionMixin, HTTPConnection):
+    pass
+
+
+class _IPv4HTTPSConnection(_IPv4ConnectionMixin, HTTPSConnection):
+    pass
+
+
+class _IPv4HTTPConnectionPool(HTTPConnectionPool):
+    ConnectionCls = _IPv4HTTPConnection
+
+
+class _IPv4HTTPSConnectionPool(HTTPSConnectionPool):
+    ConnectionCls = _IPv4HTTPSConnection
+
+
+_IPV4_POOL_CLASSES_BY_SCHEME = {
+    'http': _IPv4HTTPConnectionPool,
+    'https': _IPv4HTTPSConnectionPool,
+}
+
+
+class _IPv4AdapterMixin:
+    """Restricts every connection opened by this adapter (direct or to an HTTP(S) proxy) to IPv4."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        # Assign a new dict: urllib3 may share pool_classes_by_scheme across all PoolManagers.
+        self.poolmanager.pool_classes_by_scheme = dict(_IPV4_POOL_CLASSES_BY_SCHEME)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        manager = super().proxy_manager_for(proxy, **proxy_kwargs)
+        if not proxy.lower().startswith('socks'):
+            manager.pool_classes_by_scheme = dict(_IPV4_POOL_CLASSES_BY_SCHEME)
+        return manager
+
+
+class _IPv4TLSAdapter(_IPv4AdapterMixin, _TLSAdapter):
+    pass
+
+
+class _IPv4HTTPAdapter(_IPv4AdapterMixin, adapters.HTTPAdapter):
+    pass
 
 
 class DaraCore:
@@ -112,14 +218,15 @@ class DaraCore:
         return context
     
     @staticmethod
-    def get_adapter(prefix, tls_min_version: str = None, pool_size: int = None):
+    def get_adapter(prefix, tls_min_version: str = None, pool_size: int = None, ipv4_only: bool = False):
         pool_maxsize = pool_size if pool_size is not None and pool_size > 0 else DEFAULT_POOL_MAXSIZE
         ca_cert = certifi.where()
         context = ssl.create_default_context()
         if ca_cert and prefix.upper() == 'HTTPS':
             context = DaraCore._set_tls_minimum_version(context, tls_min_version)
             context.load_verify_locations(ca_cert)
-        adapter = _TLSAdapter(
+        adapter_cls = _IPv4TLSAdapter if ipv4_only else _TLSAdapter
+        adapter = adapter_cls(
             ssl_context=context,
             pool_connections=DEFAULT_POOL_SIZE,
             pool_maxsize=pool_maxsize,
@@ -218,6 +325,9 @@ class DaraCore:
                 proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
         pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
+        connector_kwargs = {'limit': pool_maxsize, 'limit_per_host': pool_maxsize}
+        if _is_ipv4_only(runtime_option):
+            connector_kwargs['family'] = socket.AF_INET
         connector = None
         ca_cert = certifi.where()
         ssl_context = None
@@ -231,9 +341,7 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
-            )
+            connector = aiohttp.TCPConnector(ssl=ssl_context, **connector_kwargs)
         elif ca_cert and request.protocol.upper() == 'HTTPS' and verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
@@ -244,12 +352,10 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
-            )
+            connector = aiohttp.TCPConnector(ssl=ssl_context, **connector_kwargs)
         else:
             verify = False
-            connector = aiohttp.TCPConnector(limit=pool_maxsize, limit_per_host=pool_maxsize)
+            connector = aiohttp.TCPConnector(**connector_kwargs)
 
         timeout = aiohttp.ClientTimeout(
             sock_read=read_timeout,
@@ -340,10 +446,11 @@ class DaraCore:
         host = host.rstrip('/')
 
         pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
-        session_key = f'{request.protocol.lower()}://{host}:{request.port}:pool={pool_maxsize}'
+        ipv4_only = _is_ipv4_only(runtime_option)
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}:pool={pool_maxsize}:ipv4Only={ipv4_only}'
         session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
                                        tls_min_version=tls_min_version, verify=verify,
-                                       pool_size=pool_maxsize)
+                                       pool_size=pool_maxsize, ipv4_only=ipv4_only)
         try:
             resp = session.send(
                 p,
@@ -406,6 +513,9 @@ class DaraCore:
                 proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
 
         pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
+        connector_kwargs = {'limit': pool_maxsize, 'limit_per_host': pool_maxsize}
+        if _is_ipv4_only(runtime_option):
+            connector_kwargs['family'] = socket.AF_INET
         connector = None
         ca_cert = certifi.where()
         ssl_context = None
@@ -419,9 +529,7 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
-            )
+            connector = aiohttp.TCPConnector(ssl=ssl_context, **connector_kwargs)
         elif ca_cert and request.protocol.upper() == 'HTTPS' and verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
             ssl_context = DaraCore._set_tls_minimum_version(ssl_context, tls_min_version)
@@ -432,12 +540,10 @@ class DaraCore:
                     ssl_context.load_cert_chain(certfile=cert[0], keyfile=cert[1] if len(cert) > 1 else None)
                 else:
                     ssl_context.load_cert_chain(certfile=cert, keyfile=None)
-            connector = aiohttp.TCPConnector(
-                ssl=ssl_context, limit=pool_maxsize, limit_per_host=pool_maxsize
-            )
+            connector = aiohttp.TCPConnector(ssl=ssl_context, **connector_kwargs)
         else:
             verify = False
-            connector = aiohttp.TCPConnector(limit=pool_maxsize, limit_per_host=pool_maxsize)
+            connector = aiohttp.TCPConnector(**connector_kwargs)
 
         timeout = aiohttp.ClientTimeout(
             sock_read=read_timeout,
@@ -534,10 +640,11 @@ class DaraCore:
         host = host.rstrip('/') if host else ''
 
         pool_maxsize = DaraCore._resolve_pool_maxsize(runtime_option)
-        session_key = f'{request.protocol.lower()}://{host}:{request.port}:pool={pool_maxsize}'
+        ipv4_only = _is_ipv4_only(runtime_option)
+        session_key = f'{request.protocol.lower()}://{host}:{request.port}:pool={pool_maxsize}:ipv4Only={ipv4_only}'
         session = DaraCore._get_session(session_key=session_key, protocol=request.protocol,
                                     tls_min_version=tls_min_version, verify=verify,
-                                    pool_size=pool_maxsize)
+                                    pool_size=pool_maxsize, ipv4_only=ipv4_only)
         try:
             resp = session.send(
                 p,
@@ -692,21 +799,30 @@ class DaraCore:
 
     @staticmethod
     def _get_session(session_key: str, protocol: str, tls_min_version: str = None,
-                     verify: bool = True, pool_size: int = None):
+                     verify: bool = True, pool_size: int = None, ipv4_only: bool = False):
         if session_key not in DaraCore._sessions:
             session = Session()
-            adapter = DaraCore.get_adapter(protocol, tls_min_version, pool_size=pool_size)
+            adapter = DaraCore.get_adapter(protocol, tls_min_version, pool_size=pool_size, ipv4_only=ipv4_only)
             if protocol.upper() == 'HTTPS':
                 if verify:
                     session.mount('https://', adapter)
                 else:
                     # Honor configured pool size even when SSL verify is disabled.
-                    insecure_adapter = adapters.HTTPAdapter(
+                    insecure_adapter_cls = _IPv4HTTPAdapter if ipv4_only else adapters.HTTPAdapter
+                    insecure_adapter = insecure_adapter_cls(
                         pool_connections=DEFAULT_POOL_SIZE,
                         pool_maxsize=pool_size if pool_size is not None and pool_size > 0 else DEFAULT_POOL_MAXSIZE,
                     )
                     session.mount('https://', insecure_adapter)
             else:
                 session.mount('http://', adapter)
+            if ipv4_only:
+                # Redirects or an explicit scheme in the host may switch scheme; keep those IPv4-only too.
+                for prefix in ('http://', 'https://'):
+                    if not isinstance(session.get_adapter(prefix), _IPv4AdapterMixin):
+                        session.mount(prefix, _IPv4HTTPAdapter(
+                            pool_connections=DEFAULT_POOL_SIZE,
+                            pool_maxsize=pool_size if pool_size is not None and pool_size > 0 else DEFAULT_POOL_MAXSIZE,
+                        ))
             DaraCore._sessions[session_key] = session
         return DaraCore._sessions[session_key]
