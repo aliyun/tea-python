@@ -161,3 +161,15 @@ class TestRuntime(unittest.TestCase):
         self.assertEqual(False, option.keep_alive)
         self.assertEqual('value', option.extends_parameters.headers['key'])
         self.assertEqual('value', option.extends_parameters.queries['key'])
+
+    def test_ipv4_only(self):
+        option = RuntimeOptions()
+        self.assertIsNone(option.ipv4_only)
+        self.assertNotIn('ipv4Only', option.to_map())
+        self.assertIsNone(RuntimeOptions().from_map({}).ipv4_only)
+
+        self.assertEqual(True, RuntimeOptions(ipv4_only=True).to_map().get('ipv4Only'))
+        self.assertEqual(False, RuntimeOptions(ipv4_only=False).to_map().get('ipv4Only'))
+
+        self.assertEqual(True, RuntimeOptions().from_map({'ipv4Only': True}).ipv4_only)
+        self.assertEqual(False, RuntimeOptions().from_map({'ipv4Only': False}).ipv4_only)

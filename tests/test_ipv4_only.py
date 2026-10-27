@@ -94,10 +94,9 @@ def _request(port, protocol='http'):
 def _runtime(ipv4_only=None, **kwargs):
     kwargs.setdefault('connect_timeout', 2000)
     kwargs.setdefault('read_timeout', 2000)
-    runtime = RuntimeOptions(**kwargs).to_map()
     if ipv4_only is not None:
-        runtime['ipv4Only'] = ipv4_only
-    return runtime
+        kwargs['ipv4_only'] = ipv4_only
+    return RuntimeOptions(**kwargs).to_map()
 
 
 class _NoProxyEnvMixin:
@@ -123,6 +122,7 @@ class TestIPv4OnlyHelpers(unittest.TestCase):
     def test_websocket_get_ipv4_only(self):
         self.assertFalse(get_ipv4_only(None))
         self.assertFalse(get_ipv4_only(RuntimeOptions()))
+        self.assertTrue(get_ipv4_only(RuntimeOptions(ipv4_only=True)))
         self.assertTrue(get_ipv4_only({'ipv4Only': True}))
         self.assertTrue(get_ipv4_only({'ipv4Only': 'true'}))
         self.assertFalse(get_ipv4_only({'ipv4Only': 'false'}))
@@ -453,16 +453,15 @@ def _ws_request(port):
 
 
 def _ws_runtime(ipv4_only=None, **kwargs):
-    runtime = RuntimeOptions(
+    if ipv4_only is not None:
+        kwargs['ipv4_only'] = ipv4_only
+    return RuntimeOptions(
         connect_timeout=2000,
         web_socket_handshake_timeout=3000,
         web_socket_ping_interval=0,
         web_socket_enable_reconnect=False,
         **kwargs
-    ).to_map()
-    if ipv4_only is not None:
-        runtime['ipv4Only'] = ipv4_only
-    return runtime
+    )
 
 
 @unittest.skipUnless(DUAL_STACK, SKIP_REASON)
