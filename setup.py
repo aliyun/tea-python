@@ -31,34 +31,37 @@ install_requires = [
 
 # Pin transitive deps for older CPython: recent requests/aiohttp/websocket-client
 # use PEP604 unions / builtin generics that break import on 3.7–3.9.
+# urllib3 is a direct import in darabonba.core (connection / pool classes) and
+# must be declared for every supported Python version, not only 3.7–3.8.
 if sys.version_info.minor <= 7:
     install_requires.append('requests>=2.21.0, <2.32.0')
     install_requires.append('aiohttp>=3.7.0, <3.9.0')
-    install_requires.append('urllib3<2.0.7')
+    install_requires.append('urllib3>=1.26.0, <2.0.7')
     install_requires.append('websocket-client>=1.6.0, <1.8.0')
 elif sys.version_info.minor <= 8:
     install_requires.append('requests>=2.21.0, <2.32.0')
     install_requires.append('aiohttp>=3.7.0, <3.11.0')
-    install_requires.append('urllib3<2.3.0')
+    install_requires.append('urllib3>=1.26.0, <2.3.0')
     install_requires.append('websocket-client>=1.6.0, <1.8.0')
 elif sys.version_info.minor <= 9:
     install_requires.append('requests>=2.21.0, <2.32.0')
     install_requires.append('aiohttp>=3.7.0, <3.11.0')
+    install_requires.append('urllib3>=1.26.0, <3.0.0')
     install_requires.append('websocket-client>=1.6.0, <2.0.0')
 else:
     install_requires.append('requests>=2.21.0, <3.0.0')
     install_requires.append('aiohttp>=3.7.0, <4.0.0')
+    install_requires.append('urllib3>=1.26.0, <3.0.0')
     install_requires.append('websocket-client>=1.6.0, <2.0.0')
 
-if ssl.OPENSSL_VERSION_INFO is not None and len(ssl.OPENSSL_VERSION_INFO) >= 3 and ssl.OPENSSL_VERSION_INFO[:3] >= (
-        1, 1, 1):
-    pass
-else:
-    if 'urllib3<2.0.7' in install_requires:
-        install_requires.remove('urllib3<2.0.7')
-    if 'urllib3<2.3.0' in install_requires:
-        install_requires.remove('urllib3<2.3.0')
-    install_requires.append('urllib3<2.0.0')
+# urllib3 v2 requires OpenSSL 1.1.1+; force v1.x on older OpenSSL for all Pythons.
+if not (
+    ssl.OPENSSL_VERSION_INFO is not None
+    and len(ssl.OPENSSL_VERSION_INFO) >= 3
+    and ssl.OPENSSL_VERSION_INFO[:3] >= (1, 1, 1)
+):
+    install_requires = [req for req in install_requires if not req.startswith('urllib3')]
+    install_requires.append('urllib3>=1.26.0, <2.0.0')
 
 PACKAGE = "darabonba"
 DESCRIPTION = "The darabonba module of alibabaCloud Python SDK."
