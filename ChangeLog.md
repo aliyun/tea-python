@@ -1,3 +1,6 @@
+### 2026-11-03 Version 1.0.10
+* Support `ipv4Only` / `ipv4_only` option to restrict SDK HTTP connections to IPv4 only.
+
 ### 2026-07-13 Version 1.0.9
 * Honor RuntimeOptions.maxIdleConns for urllib3 / aiohttp connection pool size (#100).
 
