@@ -68,6 +68,7 @@ class RuntimeOptions(DaraModel):
         web_socket_write_timeout: int = None,
         web_socket_handshake_timeout: int = None,
         web_socket_handler: Any = None,
+        oss_private_url: str = None,
     ):
         # retry options
         self.retry_options = retry_options
@@ -109,6 +110,8 @@ class RuntimeOptions(DaraModel):
         self.keep_alive = keep_alive
         # Extends Parameters
         self.extends_parameters = extends_parameters
+        # OSS PrivateLink 上传地址（包含 http:// 或 https://），非空时优先于 Config
+        self.oss_private_url = oss_private_url
         # WebSocket options
         self.web_socket_ping_interval = web_socket_ping_interval
         self.web_socket_pong_timeout = web_socket_pong_timeout
@@ -169,6 +172,8 @@ class RuntimeOptions(DaraModel):
             result['socks5NetWork'] = self.socks_5net_work
         if self.keep_alive is not None:
             result['keepAlive'] = self.keep_alive
+        if self.oss_private_url is not None:
+            result['ossPrivateUrl'] = self.oss_private_url
         if self.extends_parameters is not None:
             result['extendsParameters'] = self.extends_parameters.to_map()
         if self.web_socket_ping_interval is not None:
@@ -227,6 +232,8 @@ class RuntimeOptions(DaraModel):
             self.socks_5net_work = m.get('socks5NetWork')
         if m.get('keepAlive') is not None:
             self.keep_alive = m.get('keepAlive')
+        if m.get('ossPrivateUrl') is not None:
+            self.oss_private_url = m.get('ossPrivateUrl')
         if m.get('extendsParameters') is not None:
             temp_model = ExtendsParameters()
             self.extends_parameters = temp_model.from_map(m['extendsParameters'])
