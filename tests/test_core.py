@@ -1103,7 +1103,7 @@ class TestCore(unittest.TestCase):
             session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2',
                                            pool_size=DEFAULT_POOL_MAXSIZE)
             mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2',
-                                                     pool_size=DEFAULT_POOL_MAXSIZE)
+                                                     pool_size=DEFAULT_POOL_MAXSIZE, ipv4_only=False)
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
 
@@ -1129,7 +1129,7 @@ class TestCore(unittest.TestCase):
             session = DaraCore._get_session(session_key, request.protocol, 'TLSv1.2',
                                            pool_size=DEFAULT_POOL_MAXSIZE)
             mock_get_adapter.assert_called_once_with(request.protocol, 'TLSv1.2',
-                                                     pool_size=DEFAULT_POOL_MAXSIZE)
+                                                     pool_size=DEFAULT_POOL_MAXSIZE, ipv4_only=False)
             self.assertIn(session_key, DaraCore._sessions)
             self.assertEqual(session, DaraCore._sessions[session_key])
 

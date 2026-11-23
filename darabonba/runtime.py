@@ -68,6 +68,7 @@ class RuntimeOptions(DaraModel):
         web_socket_write_timeout: int = None,
         web_socket_handshake_timeout: int = None,
         web_socket_handler: Any = None,
+        ipv4_only: bool = None,
         oss_private_url: str = None,
     ):
         # retry options
@@ -108,6 +109,8 @@ class RuntimeOptions(DaraModel):
         self.socks_5net_work = socks_5net_work
         # whether to enable keep-alive
         self.keep_alive = keep_alive
+        # whether to resolve and connect over IPv4 only
+        self.ipv4_only = ipv4_only
         # Extends Parameters
         self.extends_parameters = extends_parameters
         # OSS PrivateLink 上传地址（包含 http:// 或 https://），非空时优先于 Config
@@ -172,6 +175,8 @@ class RuntimeOptions(DaraModel):
             result['socks5NetWork'] = self.socks_5net_work
         if self.keep_alive is not None:
             result['keepAlive'] = self.keep_alive
+        if self.ipv4_only is not None:
+            result['ipv4Only'] = self.ipv4_only
         if self.oss_private_url is not None:
             result['ossPrivateUrl'] = self.oss_private_url
         if self.extends_parameters is not None:
@@ -232,6 +237,8 @@ class RuntimeOptions(DaraModel):
             self.socks_5net_work = m.get('socks5NetWork')
         if m.get('keepAlive') is not None:
             self.keep_alive = m.get('keepAlive')
+        if m.get('ipv4Only') is not None:
+            self.ipv4_only = m.get('ipv4Only')
         if m.get('ossPrivateUrl') is not None:
             self.oss_private_url = m.get('ossPrivateUrl')
         if m.get('extendsParameters') is not None:

@@ -372,6 +372,7 @@ class TestWebSocket(unittest.TestCase):
             request,
         )
         self.assertEqual('proxy.example.com', proxy_kwargs['http_proxy_host'])
+        self.assertEqual('http', proxy_kwargs['proxy_type'])
 
         no_proxy_kwargs = client.configure_http_proxy(
             parsed,
