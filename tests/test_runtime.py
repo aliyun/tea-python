@@ -2,6 +2,59 @@ import unittest
 from darabonba.runtime import RuntimeOptions, ExtendsParameters
 
 class TestRuntime(unittest.TestCase):
+    def test_oss_private_url_round_trip(self):
+        self.assertNotIn('ossPrivateUrl', RuntimeOptions().to_map())
+        for endpoint in ('', 'http://localhost:8080/prefix', 'https://oss.example.test'):
+            model = RuntimeOptions(oss_private_url=endpoint)
+            self.assertEqual(endpoint, model.oss_private_url)
+            self.assertEqual(endpoint, model.to_map()['ossPrivateUrl'])
+            self.assertEqual(endpoint, RuntimeOptions().from_map(model.to_map()).oss_private_url)
+
+    def test_oss_private_url_with_ipv4_only(self):
+        for ipv4_only in (None, False, True):
+            for endpoint in (None, '', 'http://localhost:8080/prefix', 'https://oss.example.test'):
+                with self.subTest(ipv4_only=ipv4_only, endpoint=endpoint):
+                    model = RuntimeOptions(
+                        ipv4_only=ipv4_only,
+                        oss_private_url=endpoint,
+                        read_timeout=123,
+                        keep_alive=False,
+                        extends_parameters=ExtendsParameters(headers={'X-Test': 'value'}),
+                    )
+                    expected = {
+                        'readTimeout': 123,
+                        'keepAlive': False,
+                        'extendsParameters': {'headers': {'X-Test': 'value'}},
+                    }
+                    if ipv4_only is not None:
+                        expected['ipv4Only'] = ipv4_only
+                    if endpoint is not None:
+                        expected['ossPrivateUrl'] = endpoint
+                    self.assertEqual(expected, model.to_map())
+                    restored = RuntimeOptions().from_map(expected)
+                    self.assertEqual(ipv4_only, restored.ipv4_only)
+                    self.assertEqual(endpoint, restored.oss_private_url)
+                    self.assertEqual(expected, restored.to_map())
+
+    def test_oss_private_url_preserves_positional_arguments(self):
+        # 按已发布上游的参数顺序传入哨兵，防止新字段挤占已有位置。
+        names = (
+            'retry_options', 'autoretry', 'ignore_ssl', 'max_attempts',
+            'backoff_policy', 'backoff_period', 'read_timeout', 'connect_timeout',
+            'http_proxy', 'https_proxy', 'no_proxy', 'max_idle_conns', 'local_addr',
+            'socks_5proxy', 'socks_5net_work', 'keep_alive', 'key', 'cert', 'ca',
+            'extends_parameters', 'web_socket_ping_interval', 'web_socket_pong_timeout',
+            'web_socket_enable_reconnect', 'web_socket_reconnect_interval',
+            'web_socket_max_reconnect_times', 'web_socket_write_timeout',
+            'web_socket_handshake_timeout', 'web_socket_handler', 'ipv4_only',
+        )
+        values = [object() for _ in names]
+        for endpoint in (None, '', 'https://oss.example.test'):
+            model = RuntimeOptions(*values, oss_private_url=endpoint)
+            for name, value in zip(names, values):
+                self.assertIs(value, getattr(model, name))
+            self.assertEqual(endpoint, model.oss_private_url)
+
     def test_init(self):
         option = RuntimeOptions()
         option.validate()
