@@ -1,3 +1,6 @@
+### 2026-11-24 Version 1.0.11
+* 新增可选 `RuntimeOptions.oss_private_url`（序列化为 `ossPrivateUrl`），支持 OSS PrivateLink 上传地址及模型序列化往返。
+
 ### 2026-11-03 Version 1.0.10
 * Support `ipv4Only` / `ipv4_only` option to restrict SDK HTTP connections to IPv4 only.
 
